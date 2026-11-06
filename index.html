@@ -81,6 +81,8 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .ring .num small{font-size:20px;font-weight:700}
 .ring .of{color:var(--muted);font-size:13px;margin-top:4px}
 .status{margin-top:10px;font-weight:600;text-align:center}
+.natural-line{margin-top:6px;font-size:13px;color:var(--muted)}
+.natural-line b{color:var(--mint)}
 .unknown{font-size:12px;color:var(--honey);margin-top:4px}
 .pill{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;
   background:var(--plum-soft);color:var(--plum);margin-top:12px}
@@ -109,6 +111,8 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .item .sub{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.35}
 .item .grams{font-weight:800;font-size:20px;color:var(--honey);white-space:nowrap;font-family:ui-rounded,system-ui,sans-serif}
 .item .grams small{font-size:12px}
+.item .grams{text-align:right}
+.item .grams .nat{font-size:11px;font-weight:600;color:var(--mint);font-family:-apple-system,system-ui,sans-serif}
 .item .pts{font-weight:800;color:var(--mint);white-space:nowrap}
 .item .thumb{width:52px;height:52px;object-fit:cover;border-radius:10px}
 .item.slip{outline:1.5px dashed var(--berry)}
@@ -325,6 +329,7 @@ const entriesOn = (k) => state.entries.filter((e) => dayKey(e.ts) === k);
 const goalFor = (k) => (state.periodDays[k] ? state.settings.periodGoal : state.settings.goal);
 const sumGrams = (k) => entriesOn(k).filter((e) => e.type === 'food').reduce((s, e) => s + (Number(e.grams) || 0), 0);
 // a day only counts if at least one food/drink was logged (log a 0g meal on sugar-free days)
+const sumNatural = (k) => entriesOn(k).filter((e) => e.type === 'food').reduce((s, e) => s + (Number(e.natural) || 0), 0);
 const underGoalDay = (k) => entriesOn(k).some((e) => e.type === 'food') && sumGrams(k) <= goalFor(k);
 
 function pointEvents() {
@@ -388,7 +393,8 @@ function entryCard(e, showDate = false) {
         <div class="txt">${e.text ? esc(e.text) : '<i>Photo log</i>'}</div>
         ${e.aiNote ? `<div class="sub">✨ ${esc(e.aiNote)}</div>` : ''}</div>
       ${e.photo ? `<img class="thumb" src="${esc(e.photo)}" alt="">` : ''}
-      <div class="grams">${e.grams == null || e.grams === '' ? '?' : round(Number(e.grams))}<small>g</small></div>
+      <div class="grams">${e.grams == null || e.grams === '' ? '?' : round(Number(e.grams))}<small>g</small>
+        <div class="nat">${e.natural ? `+${round(Number(e.natural))}g natural` : 'added'}</div></div>
     </button>`;
   }
   if (e.type === 'craving') {
@@ -441,6 +447,7 @@ function renderToday() {
   else if (grams < goal) status = `${round(goal - grams)}g left in ${isToday ? "today's" : 'the'} budget`;
   else if (grams === goal) status = 'Right at your goal — perfect landing 🎯';
   else status = `${round(grams - goal)}g over — that’s data, not a verdict 💛`;
+  const natural = round(sumNatural(k));
   const period = !!state.periodDays[k];
   const due = isToday ? state.goals.filter((g) => !g.done && g.checkIn && g.checkIn <= tk) : [];
   const items = entriesOn(k).sort((a, b) => b.ts - a.ts);
@@ -461,6 +468,7 @@ function renderToday() {
         <div class="center"><div class="num">${grams}<small>g</small></div><div class="of">of ${goal}g added sugar</div></div>
       </div>
       <div class="status">${status}</div>
+      <div class="natural-line">🍓 <b>${natural}g</b> natural sugar · <b>${round(grams + natural)}g</b> total</div>
       ${unknown ? `<div class="unknown">${unknown} food log${unknown > 1 ? 's' : ''} still need${unknown > 1 ? '' : 's'} a sugar number</div>` : ''}
       <button class="pill ${period ? 'on' : ''}" data-action="togglePeriod">🌸 ${period ? `PMS / period goal on · ${state.settings.periodGoal}g` : `PMS / period week? Tap for ${state.settings.periodGoal}g`}</button>
     </div>
@@ -621,11 +629,11 @@ async function gemini(parts) {
   throw lastErr;
 }
 async function estimateSugar(text, imgDataUrl) {
-  const prompt = `You help someone track ADDED sugar (not natural sugar in whole fruit, plain milk, or plain vegetables).
-Estimate the grams of ADDED sugar in the food or drink ${imgDataUrl ? 'shown in the photo and/or ' : ''}described below.
+  const prompt = `You help someone track their sugar, split into ADDED sugar (sugar, syrups, honey, juice concentrate etc. added during preparation) and NATURAL sugar (naturally present in whole fruit, plain milk, plain vegetables, etc.).
+Estimate the grams of ADDED sugar and NATURAL sugar in the food or drink ${imgDataUrl ? 'shown in the photo and/or ' : ''}described below.
 Use any quantities given. If no quantity is given, assume what's visible in the photo or one typical serving, and say what you assumed.
 For restaurant or bakery items, estimate from typical recipes. Round to the nearest gram.
-Reply ONLY with JSON: {"food":"short name","added_sugar_g":number,"total_sugar_g":number,"confidence":"low"|"medium"|"high","assumptions":"one short friendly sentence"}
+Reply ONLY with JSON: {"food":"short name","added_sugar_g":number,"natural_sugar_g":number,"total_sugar_g":number,"confidence":"low"|"medium"|"high","assumptions":"one short friendly sentence"}
 
 Description: ${text || '(none — use the photo)'}`;
   const parts = [{ text: prompt }];
@@ -635,7 +643,7 @@ Description: ${text || '(none — use the photo)'}`;
 
 /* ---------- FOOD sheet ---------- */
 function openFoodSheet(entry, prefill = {}) {
-  const e = entry || { type: 'food', ts: prefill.ts || defaultTs(), text: prefill.text || '', grams: null, photo: null, slip: !!prefill.slip, aiNote: '' };
+  const e = entry || { type: 'food', ts: prefill.ts || defaultTs(), text: prefill.text || '', grams: null, natural: null, photo: null, slip: !!prefill.slip, aiNote: '' };
   let photoThumb = e.photo, photoFull = null;
   openSheet(`
     <h2>${entry ? 'Edit food log' : 'Log food 🍽️'}</h2>
@@ -646,10 +654,12 @@ function openFoodSheet(entry, prefill = {}) {
     <textarea id="fText" rows="3" placeholder="2 chocolate-filled donuts + a burger">${esc(e.text)}</textarea>
     <button class="ai" id="aiBtn">✨ Estimate sugar with Gemini</button>
     <div id="aiOut" class="ai-out ${e.aiNote ? '' : 'hidden'}">${esc(e.aiNote)}</div>
-    <div class="grid2">
-      <div><label for="fGrams">Added sugar (g)</label><input id="fGrams" type="number" inputmode="decimal" min="0" step="0.5" placeholder="?" value="${e.grams ?? ''}"></div>
-      <div><label for="fTime">When</label><input id="fTime" type="datetime-local" value="${toLocalInput(e.ts)}"></div>
+    <div class="grid2" style="grid-template-columns:1fr 1fr">
+      <div><label for="fGrams">🍩 Added sugar (g)</label><input id="fGrams" type="number" inputmode="decimal" min="0" step="0.5" placeholder="?" value="${e.grams ?? ''}"></div>
+      <div><label for="fNat">🍓 Natural sugar (g)</label><input id="fNat" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${e.natural ?? ''}"></div>
     </div>
+    <p class="hint">Added = sugar, syrups, honey, juice concentrate put in during making. Natural = what’s already in whole fruit, plain milk, veggies.</p>
+    <label for="fTime">When</label><input id="fTime" type="datetime-local" value="${toLocalInput(e.ts)}">
     <label class="check"><input type="checkbox" id="fSlip" ${e.slip ? 'checked' : ''}><span>🎂 This was a slip / I gave in<small>No shame. +2 for being honest.</small></span></label>
     <div class="actions">
       ${entry ? '<button class="btn danger" id="del">Delete</button>' : ''}
@@ -676,8 +686,9 @@ function openFoodSheet(entry, prefill = {}) {
       try {
         const r = await estimateSugar(text, img);
         const g = Math.max(0, Number(r.added_sugar_g) || 0);
-        $('#fGrams', s).value = g;
-        out.textContent = `${r.food || 'Estimate'}: ~${g}g added sugar${r.total_sugar_g != null ? ` (${r.total_sugar_g}g total)` : ''} · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
+        const nat = Math.max(0, Number(r.natural_sugar_g ?? (Number(r.total_sugar_g) - g)) || 0);
+        $('#fGrams', s).value = g; $('#fNat', s).value = nat;
+        out.textContent = `${r.food || 'Estimate'}: ~${g}g added + ~${nat}g natural sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
         if (!text && r.food) $('#fText', s).value = r.food;
       } catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
       btn.disabled = false; btn.textContent = '✨ Estimate sugar with Gemini';
@@ -689,6 +700,7 @@ function openFoodSheet(entry, prefill = {}) {
       const wasSlip = !!e.slip;
       Object.assign(e, {
         text, photo: photoThumb, grams: gv === '' ? null : Math.max(0, Number(gv)),
+        natural: $('#fNat', s).value === '' ? null : Math.max(0, Number($('#fNat', s).value)),
         ts: fromLocalInput($('#fTime', s).value), slip: $('#fSlip', s).checked,
         aiNote: out.classList.contains('hidden') || out.classList.contains('err') ? (e.aiNote || '') : out.textContent
       });
