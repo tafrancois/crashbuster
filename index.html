@@ -470,7 +470,7 @@ function renderToday() {
       </div>
       <div class="status">${status}</div>
       <div class="natural-line">🍓 <b>${natural}g</b> natural sugar · <b>${round(grams + natural)}g</b> total</div>
-      ${state.settings.totalFlag && grams + natural > state.settings.totalFlag ? `<div class="flag">🚩 Total sugar is past ${state.settings.totalFlag}g today. Just a heads-up — maybe check in with your body 💛</div>` : ''}
+      ${state.settings.totalFlag && grams + natural > state.settings.totalFlag ? `<div class="flag">🚩 ${state.settings.totalFlag === 90 ? 'You’ve passed 90g total sugar. The UK’s NHS recommends keeping total sugar (added + natural) under 90g a day — this is your stopping point for today 💛' : `You’ve passed your ${state.settings.totalFlag}g total sugar limit — this is your stopping point for today 💛`}</div>` : ''}
       ${unknown ? `<div class="unknown">${unknown} food log${unknown > 1 ? 's' : ''} still need${unknown > 1 ? '' : 's'} a sugar number</div>` : ''}
       <button class="pill ${period ? 'on' : ''}" data-action="togglePeriod">🌸 ${period ? `PMS / period goal on · ${state.settings.periodGoal}g` : `PMS / period week? Tap for ${state.settings.periodGoal}g`}</button>
     </div>
