@@ -204,6 +204,10 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .move-pick .em{font-size:26px}
 .move-pick small{color:var(--muted);font-size:12px;line-height:1.3}
 .move-pick:active{transform:scale(.96)}
+.qw-row{display:grid;grid-template-columns:52px 1fr 60px 36px;gap:6px;margin-bottom:8px;align-items:center}
+.qw-row input{padding:10px 8px}
+.qw-row .qe{text-align:center;font-size:20px}
+.qw-row .qd{font-size:18px}
 .hint{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.4}
 
 #toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 14px);transform:translate(-50%,20px);
@@ -292,9 +296,14 @@ const MOVE_HINTS = {
   m_read: 'Currently reading / listening to…',
   m_heal: 'Meals & snacks that keep me steady…'
 };
+const DEFAULT_QUICK_WINS = () => [
+  ['📚', 'Read / listened to my book', 5], ['🥗', 'Ate something nourishing', 5], ['🍓', 'Made a swap', 5],
+  ['🚶‍♀️', 'Moved my body instead', 5], ['💧', 'Drank water first', 5], ['🌙', 'No sugar after dinner', 10],
+  ['😴', 'Slept without a crash', 10], ['🍰', 'Ate half, saved half', 5], ['🧘‍♀️', 'Ate it mindfully, no multitasking', 5]
+].map(([emoji, text, points], i) => ({ id: 'qw' + i, emoji, text, points }));
 const DEFAULT_STATE = () => ({
   version: 1,
-  entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(),
+  entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(), quickWins: DEFAULT_QUICK_WINS(),
   periodDays: {},
   settings: { apiKey: '', model: 'gemini-3.5-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true }
 });
@@ -789,16 +798,12 @@ function setOutcome(id, v) {
 }
 
 /* ---------- WIN sheet ---------- */
-const QUICK_WINS = [
-  ['📚', 'Read / listened to my book', 5], ['🥗', 'Ate something nourishing', 5], ['🍓', 'Made a swap', 5],
-  ['🚶‍♀️', 'Moved my body instead', 5], ['💧', 'Drank water first', 5], ['🌙', 'No sugar after dinner', 10],
-  ['😴', 'Slept without a crash', 10], ['🍰', 'Ate half, saved half', 5], ['🧘‍♀️', 'Ate it mindfully, no multitasking', 5]
-];
 function openWinSheet(entry) {
   const e = entry || { type: 'win', ts: defaultTs(), text: '', points: 5 };
   openSheet(`
     <h2>${entry ? 'Edit win' : 'Log a win 🏆'}</h2>
-    ${entry ? '' : `<label>Quick picks</label><div class="pickrow" id="qw">${QUICK_WINS.map(([em, t, p], i) => `<button data-i="${i}">${em} ${t} <b>+${p}</b></button>`).join('')}</div>`}
+    ${entry ? '' : `<div style="display:flex;justify-content:space-between;align-items:baseline"><label>Quick picks</label><button class="link" id="editQW">✏️ Edit quick picks</button></div>
+      <div class="pickrow" id="qw">${state.quickWins.length ? state.quickWins.map((q, i) => `<button data-i="${i}">${esc(q.emoji)} ${esc(q.text)} <b>+${Number(q.points) || 0}</b></button>`).join('') : '<span class="hint">No quick picks yet — tap ✏️ to add some.</span>'}</div>`}
     <label for="wText">What did you do?</label>
     <textarea id="wText" rows="2" placeholder="Walked past the donut shop like a queen 👑">${esc(e.text)}</textarea>
     <div class="grid2">
@@ -810,8 +815,9 @@ function openWinSheet(entry) {
       <button class="btn ghost" data-action="closeSheet">Cancel</button>
       <button class="btn primary" id="save">Save</button>
     </div>`, (s) => {
+    const eq = $('#editQW', s); if (eq) eq.onclick = () => openQuickWinsEditor();
     $$('#qw button', s).forEach((b) => b.onclick = () => {
-      const [em, t, p] = QUICK_WINS[b.dataset.i]; $('#wText', s).value = `${em} ${t}`; $('#wPts', s).value = p;
+      const q = state.quickWins[b.dataset.i]; $('#wText', s).value = `${q.emoji} ${q.text}`.trim(); $('#wPts', s).value = Number(q.points) || 0;
       $$('#qw button', s).forEach((x) => x.classList.toggle('on', x === b));
     });
     $('#save', s).onclick = () => {
@@ -821,6 +827,36 @@ function openWinSheet(entry) {
       save(); closeSheet(); render(); toast(entry ? 'Saved ✔️' : `+${e.points} 🎉 WIN LOGGED!!`);
     };
     if (entry) $('#del', s).onclick = () => delEntry(entry.id);
+  });
+}
+
+function openQuickWinsEditor() {
+  let list = state.quickWins.map((q) => ({ ...q }));
+  const rows = () => list.map((q, i) => `
+    <div class="qw-row" data-i="${i}">
+      <input class="qe" value="${esc(q.emoji)}" maxlength="4" aria-label="Emoji">
+      <input class="qt" value="${esc(q.text)}" placeholder="What's the win?" aria-label="Win">
+      <input class="qp" type="number" inputmode="numeric" min="0" max="100" value="${Number(q.points) || 0}" aria-label="Points">
+      <button class="qd" aria-label="Delete">🗑️</button>
+    </div>`).join('');
+  openSheet(`
+    <h2>Edit quick picks ✏️</h2>
+    <p class="hint" style="margin-top:0">Emoji · win · points. These show up as one-tap buttons when you log a win.</p>
+    <div id="qwRows">${rows()}</div>
+    <button class="btn ghost wide" id="addQW" style="margin-top:10px">＋ Add a quick pick</button>
+    <div class="actions">
+      <button class="btn ghost" id="backQW">Cancel</button>
+      <button class="btn primary" id="saveQW">Save</button>
+    </div>
+    <button class="link" id="resetQW" style="margin-top:12px">Reset to the original list</button>`, (s) => {
+    const sync = () => { $$('.qw-row', s).forEach((r) => { const q = list[r.dataset.i]; q.emoji = $('.qe', r).value.trim(); q.text = $('.qt', r).value.trim(); q.points = Math.max(0, Math.min(100, Number($('.qp', r).value) || 0)); }); };
+    const redraw = () => { $('#qwRows', s).innerHTML = rows(); wire(); };
+    const wire = () => $$('.qd', s).forEach((b) => b.onclick = () => { sync(); list.splice(Number(b.closest('.qw-row').dataset.i), 1); redraw(); });
+    wire();
+    $('#addQW', s).onclick = () => { sync(); list.push({ id: uid(), emoji: '✨', text: '', points: 5 }); redraw(); const last = $$('.qt', s).pop(); if (last) last.focus(); };
+    $('#resetQW', s).onclick = () => { if (confirm('Reset quick picks to the original list?')) { list = DEFAULT_QUICK_WINS(); redraw(); } };
+    $('#backQW', s).onclick = () => openWinSheet();
+    $('#saveQW', s).onclick = () => { sync(); state.quickWins = list.filter((q) => q.text); save(); toast('Quick picks saved ✏️'); openWinSheet(); };
   });
 }
 
