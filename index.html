@@ -1,0 +1,1045 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#E8546B">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Crash Buster">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="icon" href="icons/icon-192.png">
+<title>Crash Buster</title>
+<style>
+:root{
+  --bg:#FFF7F0; --card:#FFFFFF; --ink:#33203A; --muted:#8A7683; --line:#F0E2DA;
+  --berry:#E8546B; --berry-soft:#FDE3E7; --mint:#2FA67D; --mint-soft:#DDF5EC;
+  --honey:#D98E1F; --honey-soft:#FCEFD9; --plum:#6B3F7A; --plum-soft:#EFE4F3;
+  --shadow:0 2px 12px rgba(80,40,60,.08); --r:18px;
+  --nav-h:68px;
+}
+@media (prefers-color-scheme: dark){
+  :root{
+    --bg:#1B1420; --card:#261C2C; --ink:#F6EAF0; --muted:#B39FB0; --line:#3A2C40;
+    --berry:#FF6F86; --berry-soft:#45222D; --mint:#4FD1A0; --mint-soft:#1E3A30;
+    --honey:#F5B95A; --honey-soft:#43341C; --plum:#C79BE0; --plum-soft:#35263F;
+    --shadow:0 2px 12px rgba(0,0,0,.35);
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  -webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+h1,h2,h3,.rounded{font-family:ui-rounded,"SF Pro Rounded","Nunito","Segoe UI",system-ui,sans-serif}
+h2{font-size:22px;margin:4px 0 12px}
+h3{font-size:16px;margin:22px 0 10px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;font-weight:700}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+input,textarea,select{font:inherit;font-size:16px;color:var(--ink);background:var(--bg);
+  border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;width:100%}
+textarea{resize:vertical;line-height:1.45}
+input:focus,textarea:focus,select:focus{outline:none;border-color:var(--berry)}
+label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14px 0 6px}
+.hidden{display:none!important}
+
+/* top bar */
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);
+  padding:calc(env(safe-area-inset-top) + 10px) 18px 8px;display:flex;align-items:center;justify-content:space-between}
+.topbar h1{margin:0;font-size:24px;letter-spacing:-.01em}
+.topbar h1 span{color:var(--berry)}
+.icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:var(--card);box-shadow:var(--shadow)}
+
+main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);max-width:640px;margin:0 auto}
+.tab{display:none}.tab.active{display:block;animation:fade .2s ease}
+@keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+
+/* bottom nav */
+.bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);
+  border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
+  padding-bottom:env(safe-area-inset-bottom);height:calc(var(--nav-h) + env(safe-area-inset-bottom))}
+.bottomnav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted)}
+.bottomnav button .em{font-size:22px;filter:grayscale(.6);opacity:.7;transition:.15s}
+.bottomnav button.active{color:var(--berry)}
+.bottomnav button.active .em{filter:none;opacity:1;transform:scale(1.12)}
+
+/* cards */
+.card{background:var(--card);border-radius:var(--r);box-shadow:var(--shadow);padding:16px}
+.empty{color:var(--muted);text-align:center;padding:22px 10px;font-size:15px}
+
+/* today */
+.daynav{display:flex;align-items:center;justify-content:space-between;margin:2px 0 12px}
+.daynav button.arrow{width:38px;height:38px;border-radius:50%;font-size:22px;background:var(--card);box-shadow:var(--shadow)}
+.daynav button.arrow:disabled{opacity:.3}
+.daynav .daylabel{font-weight:700;font-size:16px;text-align:center}
+.daynav .daylabel small{display:block;font-weight:500;color:var(--muted);font-size:12px}
+.ring-card{display:flex;flex-direction:column;align-items:center;padding:18px 16px 14px}
+.ring{position:relative;width:190px;height:190px}
+.ring svg{transform:rotate(-90deg)}
+.ring .center{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.ring .num{font-size:46px;font-weight:800;line-height:1;font-family:ui-rounded,"SF Pro Rounded",system-ui,sans-serif}
+.ring .num small{font-size:20px;font-weight:700}
+.ring .of{color:var(--muted);font-size:13px;margin-top:4px}
+.status{margin-top:10px;font-weight:600;text-align:center}
+.unknown{font-size:12px;color:var(--honey);margin-top:4px}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:8px 14px;border-radius:999px;font-size:13px;font-weight:600;
+  background:var(--plum-soft);color:var(--plum);margin-top:12px}
+.pill.on{background:var(--plum);color:#fff}
+.big3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px}
+.big3 button{border-radius:var(--r);padding:16px 6px;display:flex;flex-direction:column;align-items:center;gap:6px;
+  font-weight:700;font-size:14px;box-shadow:var(--shadow);transition:transform .1s}
+.big3 button:active{transform:scale(.95)}
+.big3 .em{font-size:30px}
+.b-food{background:var(--honey-soft);color:var(--honey)}
+.b-crave{background:var(--berry-soft);color:var(--berry)}
+.b-win{background:var(--mint-soft);color:var(--mint)}
+.banner{display:flex;gap:10px;align-items:center;background:var(--plum-soft);color:var(--plum);border-radius:14px;padding:12px 14px;margin-top:12px;font-weight:600;font-size:14px;width:100%;text-align:left}
+
+/* timeline items */
+.list{display:flex;flex-direction:column;gap:10px}
+.item{display:flex;gap:12px;align-items:flex-start;background:var(--card);border-radius:16px;padding:12px;box-shadow:var(--shadow);text-align:left;width:100%}
+.item .badge{flex:0 0 40px;height:40px;border-radius:12px;display:grid;place-items:center;font-size:20px;background:var(--bg)}
+.item.food .badge{background:var(--honey-soft)}
+.item.craving .badge{background:var(--berry-soft)}
+.item.win .badge{background:var(--mint-soft)}
+.item.journal .badge{background:var(--plum-soft)}
+.item .body{flex:1;min-width:0}
+.item .meta{font-size:12px;color:var(--muted);margin-bottom:2px}
+.item .txt{font-size:15px;line-height:1.4;word-wrap:break-word}
+.item .sub{font-size:12.5px;color:var(--muted);margin-top:4px;line-height:1.35}
+.item .grams{font-weight:800;font-size:20px;color:var(--honey);white-space:nowrap;font-family:ui-rounded,system-ui,sans-serif}
+.item .grams small{font-size:12px}
+.item .pts{font-weight:800;color:var(--mint);white-space:nowrap}
+.item .thumb{width:52px;height:52px;object-fit:cover;border-radius:10px}
+.item.slip{outline:1.5px dashed var(--berry)}
+.outcomes{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.outcomes button{font-size:12.5px;font-weight:700;padding:7px 10px;border-radius:999px;background:var(--bg);border:1.5px solid var(--line)}
+.outcomes .o-res{color:var(--mint);border-color:var(--mint)}
+.outcomes .o-sm{color:var(--honey);border-color:var(--honey)}
+.outcomes .o-gi{color:var(--berry);border-color:var(--berry)}
+.tag{display:inline-block;font-size:12px;font-weight:700;padding:3px 9px;border-radius:999px;margin-top:6px;margin-right:4px}
+.t-res{background:var(--mint-soft);color:var(--mint)}
+.t-sm{background:var(--honey-soft);color:var(--honey)}
+.t-gi{background:var(--berry-soft);color:var(--berry)}
+.t-move{background:var(--plum-soft);color:var(--plum)}
+.j-title{font-weight:700;font-size:16px;margin-bottom:4px}
+.clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
+.small-actions{display:flex;gap:14px;margin-top:8px}
+.small-actions button{font-size:13px;font-weight:700;color:var(--plum)}
+.dayhead{font-size:13px;font-weight:700;color:var(--muted);margin:18px 2px 2px}
+
+/* chips & segmented */
+.chips{display:flex;gap:8px;overflow-x:auto;padding:2px 2px 6px;margin:12px -2px 6px;scrollbar-width:none}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;padding:8px 14px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-size:14px;font-weight:600}
+.chip.on{background:var(--ink);color:var(--bg)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);background:var(--card);border-radius:14px;padding:4px;box-shadow:var(--shadow);margin-bottom:14px}
+.seg button{padding:10px 4px;border-radius:10px;font-weight:700;font-size:14px;color:var(--muted)}
+.seg button.on{background:var(--berry);color:#fff}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:13px 18px;border-radius:14px;font-weight:700;font-size:15px}
+.primary{background:var(--berry);color:#fff}
+.ghost{background:var(--bg);border:1.5px solid var(--line)}
+.danger{color:var(--berry)}
+.wide{width:100%}
+.link{color:var(--plum);font-weight:700;font-size:14px;padding:6px 0}
+
+/* toolkit */
+.why-card{background:linear-gradient(135deg,var(--berry-soft),var(--plum-soft));border-radius:var(--r);padding:18px;position:relative;text-align:left;width:100%}
+.why-card .why-label{font-size:12px;font-weight:800;color:var(--berry);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px}
+.why-card .why-text{font-size:17px;line-height:1.45;font-weight:600;white-space:pre-wrap}
+.why-card .why-src{font-size:12px;color:var(--muted);margin-top:8px}
+.move-card .head{display:flex;align-items:center;gap:10px}
+.move-card .em{font-size:28px}
+.move-card .name{font-weight:800;font-size:17px}
+.move-card .stats{font-size:12px;color:var(--muted)}
+.move-card .notes{margin-top:8px;font-size:14px;white-space:pre-wrap;line-height:1.4}
+.goal-card .txt{font-size:15px;line-height:1.45;white-space:pre-wrap}
+.goal-card .meta{font-size:12px;color:var(--muted);margin-top:8px}
+.goal-card.due{outline:2px solid var(--plum)}
+.goal-card.done{opacity:.65}
+
+/* wins */
+.score{text-align:center;padding:22px 16px}
+.score .big{font-size:64px;font-weight:900;line-height:1;color:var(--mint);font-family:ui-rounded,system-ui,sans-serif}
+.score .lbl{font-weight:700;color:var(--muted);margin-top:4px}
+.score .vibe{font-size:18px;font-weight:800;margin-top:10px}
+.stats3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}
+.stats3 .card{text-align:center;padding:12px 6px}
+.stats3 b{display:block;font-size:22px;font-family:ui-rounded,system-ui,sans-serif}
+.stats3 span{font-size:12px;color:var(--muted);font-weight:600}
+.bars{display:grid;grid-template-columns:repeat(7,1fr);gap:8px;align-items:end;height:120px;margin-top:8px}
+.bars .bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;font-size:11px;color:var(--muted);font-weight:700}
+.bars .fill{width:100%;border-radius:8px 8px 4px 4px;background:var(--mint);min-height:4px}
+.bars .bar.today .fill{background:var(--berry)}
+.bars .v{color:var(--ink)}
+
+/* sheet */
+.sheet-wrap{position:fixed;inset:0;z-index:20;background:rgba(30,15,30,.45);display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
+.sheet{background:var(--card);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:24px 24px 0 0;
+  padding:10px 18px calc(env(safe-area-inset-bottom) + 18px);animation:up .22s ease;-webkit-overflow-scrolling:touch}
+.sheet::before{content:"";display:block;width:44px;height:5px;border-radius:9px;background:var(--line);margin:2px auto 12px}
+@keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
+.actions{display:flex;gap:10px;margin-top:20px;align-items:center}
+.actions .primary{flex:1}
+.grid2{display:grid;grid-template-columns:1fr 1.3fr;gap:10px}
+.photo-box{border:2px dashed var(--line);border-radius:16px;min-height:120px;display:grid;place-items:center;color:var(--muted);font-weight:700;overflow:hidden;width:100%}
+.photo-box img{width:100%;max-height:260px;object-fit:cover;display:block}
+.ai{width:100%;margin-top:10px;padding:13px;border-radius:14px;font-weight:800;background:linear-gradient(90deg,var(--plum),var(--berry));color:#fff}
+.ai:disabled{opacity:.6}
+.ai-out{margin-top:10px;background:var(--plum-soft);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.4}
+.ai-out.err{background:var(--berry-soft)}
+.check{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px;font-weight:600;margin-top:16px}
+.check input{width:22px;height:22px;flex:0 0 22px;accent-color:var(--berry);margin-top:1px}
+.check small{display:block;color:var(--muted);font-weight:500}
+.pickrow{display:flex;flex-wrap:wrap;gap:8px}
+.pickrow button{padding:9px 13px;border-radius:999px;background:var(--bg);border:1.5px solid var(--line);font-weight:600;font-size:14px}
+.pickrow button.on{background:var(--berry);border-color:var(--berry);color:#fff}
+.move-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.move-pick{background:var(--bg);border:1.5px solid var(--line);border-radius:16px;padding:12px;text-align:left;display:flex;flex-direction:column;gap:4px}
+.move-pick .em{font-size:26px}
+.move-pick small{color:var(--muted);font-size:12px;line-height:1.3}
+.move-pick:active{transform:scale(.96)}
+.hint{font-size:12.5px;color:var(--muted);margin-top:6px;line-height:1.4}
+
+#toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + env(safe-area-inset-bottom) + 14px);transform:translate(-50%,20px);
+  background:var(--ink);color:var(--bg);padding:12px 18px;border-radius:14px;font-weight:700;font-size:14px;z-index:40;
+  opacity:0;pointer-events:none;transition:.25s;max-width:90vw;text-align:center;box-shadow:0 6px 20px rgba(0,0,0,.25)}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+<header class="topbar">
+  <h1>Crash <span>Buster</span> 💥</h1>
+  <button class="icon-btn" data-action="openSettings" aria-label="Settings">⚙️</button>
+</header>
+
+<main>
+  <section id="tab-today" class="tab active"></section>
+  <section id="tab-journal" class="tab"></section>
+  <section id="tab-toolkit" class="tab"></section>
+  <section id="tab-wins" class="tab"></section>
+</main>
+
+<nav class="bottomnav">
+  <button data-action="tab" data-tab="today" class="active"><span class="em">🏠</span>Today</button>
+  <button data-action="tab" data-tab="journal"><span class="em">📖</span>Journal</button>
+  <button data-action="tab" data-tab="toolkit"><span class="em">🧰</span>Toolkit</button>
+  <button data-action="tab" data-tab="wins"><span class="em">🏆</span>Wins</button>
+</nav>
+
+<div id="sheetWrap" class="sheet-wrap hidden"><div class="sheet" id="sheet"></div></div>
+<div id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const pad = (n) => String(n).padStart(2, '0');
+const dayKey = (ts) => { const d = new Date(ts); return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`; };
+const keyToDate = (k) => { const [y, m, d] = k.split('-').map(Number); return new Date(y, m - 1, d); };
+const addDays = (k, n) => { const d = keyToDate(k); d.setDate(d.getDate() + n); return dayKey(d.getTime()); };
+const todayKey = () => dayKey(Date.now());
+const weekStartKey = (k) => { const d = keyToDate(k); const dow = (d.getDay() + 6) % 7; d.setDate(d.getDate() - dow); return dayKey(d.getTime()); };
+const fmtTime = (ts) => new Date(ts).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+const fmtDay = (k) => keyToDate(k).toLocaleDateString([], { weekday: 'long', month: 'short', day: 'numeric' });
+const fmtShort = (k) => keyToDate(k).toLocaleDateString([], { month: 'short', day: 'numeric' });
+const fmtDateTime = (ts) => new Date(ts).toLocaleString([], { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+const toLocalInput = (ts) => { const d = new Date(ts); return `${dayKey(ts)}T${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+const fromLocalInput = (v) => {
+  if (!v) return Date.now();
+  const [date, time = '0:0'] = v.split('T');
+  const [y, m, d] = date.split('-').map(Number); const [hh, mm] = time.split(':').map(Number);
+  return new Date(y, m - 1, d, hh, mm).getTime();
+};
+const round = (n) => Math.round(n * 10) / 10;
+
+/* ---------- storage (IndexedDB) ---------- */
+let _db;
+function db() {
+  if (_db) return Promise.resolve(_db);
+  return new Promise((res, rej) => {
+    const r = indexedDB.open('crashbuster', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('kv');
+    r.onsuccess = () => { _db = r.result; res(_db); };
+    r.onerror = () => rej(r.error);
+  });
+}
+async function idbGet(k) { const d = await db(); return new Promise((res, rej) => { const q = d.transaction('kv').objectStore('kv').get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbSet(k, v) { const d = await db(); return new Promise((res, rej) => { const t = d.transaction('kv', 'readwrite'); t.objectStore('kv').put(v, k); t.oncomplete = res; t.onerror = () => rej(t.error); }); }
+
+/* ---------- state ---------- */
+const DEFAULT_MOVES = () => [
+  { id: 'm_sub', emoji: '🍓', name: 'Substitution', notes: '' },
+  { id: 'm_dis', emoji: '🎧', name: 'Distraction', notes: '' },
+  { id: 'm_por', emoji: '🍰', name: 'Smaller portion', notes: '' },
+  { id: 'm_read', emoji: '📚', name: 'Reading / listening', notes: '' },
+  { id: 'm_heal', emoji: '🥗', name: 'Eating healthy', notes: '' }
+];
+const MOVE_HINTS = {
+  m_sub: 'My go-to swaps: frozen grapes, sparkling water + lime…',
+  m_dis: 'Things that work: walk Bear, shower, call someone, color…',
+  m_por: 'Half now, half in the fridge / given away / trash, guilt free',
+  m_read: 'Currently reading / listening to…',
+  m_heal: 'Meals & snacks that keep me steady…'
+};
+const DEFAULT_STATE = () => ({
+  version: 1,
+  entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(),
+  periodDays: {},
+  settings: { apiKey: '', model: 'gemini-3.5-flash', goal: 35, periodGoal: 40 }
+});
+let state = DEFAULT_STATE();
+const ui = { tab: 'today', day: todayKey(), followToday: true, jFilter: 'journal', kit: 'why' };
+
+async function save() { try { await idbSet('state', state); } catch (e) { toast('⚠️ Couldn’t save: ' + e.message); } }
+
+function seed() {
+  const t1 = new Date(2026, 10, 4, 23, 53).getTime();
+  state.entries.push({
+    id: uid(), type: 'journal', ts: t1, title: 'First log 🍩', mood: '😰',
+    text: "I had a box of chocolate filled donuts from Nick the Greek. They were delicious with a strange bitterness to it. I had them throughout the day and had 2 more at 8pm with a burger.\n\nAt 11pm almost 12am, my heart is racing, I couldn't sleep, I'm exhausted, I took a hot shower and my heart is still racing. I also feel a little depressed.\n\nThese horrible awful jolts, they feel terrifying. I can't sleep or fall asleep.\n\nIdk how I would do today differently. I tried deep breathing, tapping, caressing my skin. Nothing is helping me fall asleep or get through those jolts."
+  });
+  const t2 = new Date(2026, 10, 5, 8, 12).getTime();
+  state.whys.push(
+    { id: uid(), ts: t1, text: 'Heart racing at midnight. Couldn’t sleep. Exhausted, a little depressed. Those horrible awful jolts felt terrifying.', src: 'First log · Nov 4' },
+    { id: uid(), ts: t2, text: 'My nervous system is extremely sensitive to sugar and crashes. My brain reads a crash as a catastrophe — then the dominos fall.', src: 'Nov 5' },
+    { id: uid(), ts: t2, text: 'I’m ready to listen to my body and stop eating 6 donut bites before bed.', src: 'Nov 5' }
+  );
+  state.goals.push({
+    id: uid(), ts: t2, done: false, doneTs: null, checkIn: '2026-11-19',
+    text: 'For portions, I want to start by taking any dessert I’m eating or drinking and only eat half of it. The other half can go in the trash guilt free, be given away, or put in the fridge. After two weeks, I want to decrease half to 1/3.'
+  }, {
+    id: uid(), ts: t2 + 60000, done: false, doneTs: null, checkIn: '',
+    text: 'Any time I eat or drink something with added sugar, I do it mindfully, focusing on the flavor without multitasking.'
+  });
+}
+
+/* ---------- derived data ---------- */
+const moveById = (id) => state.moves.find((m) => m.id === id);
+const entriesOn = (k) => state.entries.filter((e) => dayKey(e.ts) === k);
+const goalFor = (k) => (state.periodDays[k] ? state.settings.periodGoal : state.settings.goal);
+const sumGrams = (k) => entriesOn(k).filter((e) => e.type === 'food').reduce((s, e) => s + (Number(e.grams) || 0), 0);
+// a day only counts if at least one food/drink was logged (log a 0g meal on sugar-free days)
+const underGoalDay = (k) => entriesOn(k).some((e) => e.type === 'food') && sumGrams(k) <= goalFor(k);
+
+function pointEvents() {
+  const ev = [];
+  for (const e of state.entries) {
+    if (e.type === 'craving') {
+      const m = moveById(e.strategy);
+      if (m) ev.push({ ts: e.ts, pts: 5, label: `Made a move: ${m.emoji} ${m.name}` });
+      const ots = e.outcomeTs || e.ts;
+      if (e.outcome === 'resisted') ev.push({ ts: ots, pts: 10, label: `Resisted: ${e.text}` });
+      if (e.outcome === 'smaller') ev.push({ ts: ots, pts: 5, label: `Smaller portion: ${e.text}` });
+      if (e.outcome === 'gavein') ev.push({ ts: ots, pts: 2, label: `Honest about giving in: ${e.text}` });
+    } else if (e.type === 'food' && e.slip) {
+      ev.push({ ts: e.ts, pts: 2, label: `Logged a slip honestly: ${e.text || 'photo log'}` });
+    } else if (e.type === 'win') {
+      ev.push({ ts: e.ts, pts: Number(e.points) || 0, label: e.text });
+    }
+  }
+  for (const g of state.goals) if (g.done && g.doneTs) ev.push({ ts: g.doneTs, pts: 15, label: `Goal reached 🎯 ${g.text.slice(0, 60)}${g.text.length > 60 ? '…' : ''}` });
+  const days = new Set(state.entries.map((e) => dayKey(e.ts)));
+  const tk = todayKey();
+  for (const k of days) {
+    if (k < tk && underGoalDay(k)) {
+      const d = keyToDate(k); d.setHours(23, 59);
+      ev.push({ ts: d.getTime(), pts: 20, label: `Stayed under ${goalFor(k)}g on ${fmtShort(k)} ✨`, bonus: true });
+    }
+  }
+  return ev.sort((a, b) => b.ts - a.ts);
+}
+function streak() {
+  let n = 0, k = addDays(todayKey(), -1); // today counts once it's over
+  while (underGoalDay(k)) { n++; k = addDays(k, -1); }
+  return n;
+}
+
+/* ---------- toast ---------- */
+let toastT;
+function toast(msg) { const t = $('#toast'); t.textContent = msg; t.classList.add('show'); clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 2800); }
+
+/* ---------- sheet ---------- */
+function openSheet(html, mount) {
+  const s = $('#sheet'); s.innerHTML = html; $('#sheetWrap').classList.remove('hidden');
+  s.scrollTop = 0; document.body.style.overflow = 'hidden';
+  if (mount) mount(s);
+}
+function closeSheet() { $('#sheetWrap').classList.add('hidden'); $('#sheet').innerHTML = ''; document.body.style.overflow = ''; }
+$('#sheetWrap').addEventListener('click', (e) => { if (e.target.id === 'sheetWrap') closeSheet(); });
+
+function defaultTs() {
+  if (ui.day === todayKey()) return Date.now();
+  const d = keyToDate(ui.day); const n = new Date(); d.setHours(n.getHours(), n.getMinutes()); return d.getTime();
+}
+
+/* ---------- entry cards ---------- */
+function entryCard(e, showDate = false) {
+  const time = showDate ? fmtDateTime(e.ts) : fmtTime(e.ts);
+  if (e.type === 'food') {
+    return `<button class="item food ${e.slip ? 'slip' : ''}" data-action="editEntry" data-id="${e.id}">
+      <div class="badge">${e.slip ? '🎂' : '🍽️'}</div>
+      <div class="body"><div class="meta">${time}${e.slip ? ' · slip, logged honestly 💛' : ''}</div>
+        <div class="txt">${e.text ? esc(e.text) : '<i>Photo log</i>'}</div>
+        ${e.aiNote ? `<div class="sub">✨ ${esc(e.aiNote)}</div>` : ''}</div>
+      ${e.photo ? `<img class="thumb" src="${esc(e.photo)}" alt="">` : ''}
+      <div class="grams">${e.grams == null || e.grams === '' ? '?' : round(Number(e.grams))}<small>g</small></div>
+    </button>`;
+  }
+  if (e.type === 'craving') {
+    const m = moveById(e.strategy);
+    const tags = [];
+    if (e.intensity) tags.push(`<span class="tag t-gi">${'🔥'.repeat(e.intensity)}</span>`);
+    if (m) tags.push(`<span class="tag t-move">${m.emoji} ${esc(m.name)}</span>`);
+    if (e.outcome === 'resisted') tags.push('<span class="tag t-res">💪 Resisted +10</span>');
+    if (e.outcome === 'smaller') tags.push('<span class="tag t-sm">🍰 Smaller portion +5</span>');
+    if (e.outcome === 'gavein') tags.push('<span class="tag t-gi">🎂 Gave in · honest +2</span>');
+    const pending = !e.outcome ? `<div class="outcomes">
+        ${!m ? `<button data-action="pickMove" data-id="${e.id}">🧰 Pick a move</button>` : ''}
+        <button class="o-res" data-action="outcome" data-v="resisted" data-id="${e.id}">💪 Resisted</button>
+        <button class="o-sm" data-action="outcome" data-v="smaller" data-id="${e.id}">🍰 Smaller portion</button>
+        <button class="o-gi" data-action="outcome" data-v="gavein" data-id="${e.id}">🎂 Gave in</button>
+      </div>` : '';
+    return `<div class="item craving" data-action="editEntry" data-id="${e.id}" role="button">
+      <div class="badge">😭</div>
+      <div class="body"><div class="meta">${time} · craving</div>
+        <div class="txt">${esc(e.text)}</div>${tags.join('')}${pending}</div>
+    </div>`;
+  }
+  if (e.type === 'win') {
+    return `<button class="item win" data-action="editEntry" data-id="${e.id}">
+      <div class="badge">🏆</div>
+      <div class="body"><div class="meta">${time} · win</div><div class="txt">${esc(e.text)}</div></div>
+      <div class="pts">+${Number(e.points) || 0}</div></button>`;
+  }
+  if (e.type === 'journal') {
+    return `<div class="item journal" data-action="editEntry" data-id="${e.id}" role="button">
+      <div class="badge">${esc(e.mood || '✍️')}</div>
+      <div class="body"><div class="meta">${time} · reflection</div>
+        ${e.title ? `<div class="j-title">${esc(e.title)}</div>` : ''}
+        <div class="txt clamp">${esc(e.text)}</div>
+        <div class="small-actions"><button data-action="pinWhy" data-id="${e.id}">📌 Pin to My Why</button></div>
+      </div></div>`;
+  }
+  return '';
+}
+
+/* ---------- TODAY ---------- */
+function renderToday() {
+  const k = ui.day, tk = todayKey(), isToday = k === tk;
+  const grams = round(sumGrams(k)), goal = goalFor(k), p = goal ? grams / goal : 0;
+  const C = 2 * Math.PI * 80, off = C * (1 - Math.min(p, 1));
+  const color = p > 1 ? 'var(--berry)' : p >= 0.75 ? 'var(--honey)' : 'var(--mint)';
+  const unknown = entriesOn(k).filter((e) => e.type === 'food' && (e.grams == null || e.grams === '')).length;
+  let status;
+  if (grams === 0) status = isToday ? 'Clean slate ✨' : 'No sugar logged';
+  else if (grams < goal) status = `${round(goal - grams)}g left in ${isToday ? "today's" : 'the'} budget`;
+  else if (grams === goal) status = 'Right at your goal — perfect landing 🎯';
+  else status = `${round(grams - goal)}g over — that’s data, not a verdict 💛`;
+  const period = !!state.periodDays[k];
+  const due = isToday ? state.goals.filter((g) => !g.done && g.checkIn && g.checkIn <= tk) : [];
+  const items = entriesOn(k).sort((a, b) => b.ts - a.ts);
+
+  $('#tab-today').innerHTML = `
+    <div class="daynav">
+      <button class="arrow" data-action="dayPrev" aria-label="Previous day">‹</button>
+      <button class="daylabel" data-action="dayToday">${isToday ? 'Today' : fmtDay(k)}<small>${isToday ? fmtDay(k) : 'tap to jump to today'}</small></button>
+      <button class="arrow" data-action="dayNext" ${isToday ? 'disabled' : ''} aria-label="Next day">›</button>
+    </div>
+    <div class="card ring-card">
+      <div class="ring">
+        <svg width="190" height="190" viewBox="0 0 190 190">
+          <circle cx="95" cy="95" r="80" fill="none" stroke="var(--line)" stroke-width="16"/>
+          <circle cx="95" cy="95" r="80" fill="none" stroke="${color}" stroke-width="16" stroke-linecap="round"
+            stroke-dasharray="${C}" stroke-dashoffset="${off}" style="transition:stroke-dashoffset .5s"/>
+        </svg>
+        <div class="center"><div class="num">${grams}<small>g</small></div><div class="of">of ${goal}g added sugar</div></div>
+      </div>
+      <div class="status">${status}</div>
+      ${unknown ? `<div class="unknown">${unknown} food log${unknown > 1 ? 's' : ''} still need${unknown > 1 ? '' : 's'} a sugar number</div>` : ''}
+      <button class="pill ${period ? 'on' : ''}" data-action="togglePeriod">🌸 ${period ? `PMS / period goal on · ${state.settings.periodGoal}g` : `PMS / period week? Tap for ${state.settings.periodGoal}g`}</button>
+    </div>
+    ${due.map((g) => `<button class="banner" data-action="editGoal" data-id="${g.id}">🔔 <span>Goal check-in time! “${esc(g.text.slice(0, 70))}${g.text.length > 70 ? '…' : ''}”</span></button>`).join('')}
+    <div class="big3">
+      <button class="b-food" data-action="newFood"><span class="em">📸</span>Log food</button>
+      <button class="b-crave" data-action="newCraving"><span class="em">😭</span>Craving!</button>
+      <button class="b-win" data-action="newWin"><span class="em">🏆</span>Win</button>
+    </div>
+    <h3>${isToday ? "Today's" : 'This day’s'} timeline</h3>
+    <div class="list">${items.length ? items.map((e) => entryCard(e)).join('') : `<div class="empty">Nothing logged ${isToday ? 'yet today' : 'this day'}.<br>Every log is a little act of listening to your body 🫶</div>`}</div>
+  `;
+}
+
+/* ---------- JOURNAL ---------- */
+function renderJournal() {
+  const filters = [['journal', '✍️ Reflections'], ['all', 'All'], ['food', '🍽️ Food'], ['craving', '😭 Cravings'], ['win', '🏆 Wins']];
+  let list = state.entries.slice().sort((a, b) => b.ts - a.ts);
+  if (ui.jFilter !== 'all') list = list.filter((e) => e.type === ui.jFilter);
+  let html = '', last = '';
+  for (const e of list) {
+    const k = dayKey(e.ts);
+    if (k !== last) { html += `<div class="dayhead">${k === todayKey() ? 'Today' : fmtDay(k)}</div>`; last = k; }
+    html += entryCard(e);
+  }
+  $('#tab-journal').innerHTML = `
+    <h2>Journal</h2>
+    <button class="btn primary wide" data-action="newJournal">✍️ New reflection</button>
+    <div class="chips">${filters.map(([v, l]) => `<button class="chip ${ui.jFilter === v ? 'on' : ''}" data-action="jFilter" data-v="${v}">${l}</button>`).join('')}</div>
+    <div class="list">${html || '<div class="empty">Nothing here yet.</div>'}</div>`;
+}
+
+/* ---------- TOOLKIT ---------- */
+function renderToolkit() {
+  const tk = todayKey();
+  let body = '';
+  if (ui.kit === 'why') {
+    body = `<p class="hint" style="margin-top:0">Your reasons, in your words. These pop up every time you log a craving.</p>
+      <div class="list">${state.whys.length ? state.whys.slice().sort((a, b) => b.ts - a.ts).map((w) => `
+        <button class="why-card" data-action="editWhy" data-id="${w.id}">
+          <div class="why-label">💭 Why I’m doing this</div>
+          <div class="why-text">${esc(w.text)}</div>${w.src ? `<div class="why-src">${esc(w.src)}</div>` : ''}
+        </button>`).join('') : '<div class="empty">No reasons yet. Add one, or pin a journal entry 📌</div>'}</div>
+      <button class="btn ghost wide" style="margin-top:12px" data-action="newWhy">＋ Add a reason</button>`;
+  } else if (ui.kit === 'moves') {
+    body = `<p class="hint" style="margin-top:0">Your strategies. Add notes so future-you has ideas ready mid-craving.</p>
+      <div class="list">${state.moves.map((m) => {
+        const used = state.entries.filter((e) => e.type === 'craving' && e.strategy === m.id);
+        const worked = used.filter((e) => e.outcome === 'resisted' || e.outcome === 'smaller').length;
+        return `<button class="card move-card" data-action="editMove" data-id="${m.id}" style="text-align:left;width:100%">
+          <div class="head"><span class="em">${esc(m.emoji)}</span><div><div class="name">${esc(m.name)}</div>
+          <div class="stats">Used ${used.length}× · worked ${worked}×</div></div></div>
+          ${m.notes ? `<div class="notes">${esc(m.notes)}</div>` : `<div class="notes" style="color:var(--muted)">Tap to add notes…</div>`}
+        </button>`;
+      }).join('')}</div>
+      <button class="btn ghost wide" style="margin-top:12px" data-action="newMove">＋ Add a move</button>`;
+  } else {
+    const active = state.goals.filter((g) => !g.done).sort((a, b) => (a.checkIn || '9') < (b.checkIn || '9') ? -1 : 1);
+    const done = state.goals.filter((g) => g.done).sort((a, b) => b.doneTs - a.doneTs);
+    const gcard = (g) => {
+      const isDue = !g.done && g.checkIn && g.checkIn <= tk;
+      return `<button class="card goal-card ${isDue ? 'due' : ''} ${g.done ? 'done' : ''}" data-action="editGoal" data-id="${g.id}" style="text-align:left;width:100%">
+        <div class="txt">${esc(g.text)}</div>
+        <div class="meta">Set ${fmtShort(dayKey(g.ts))}${g.checkIn && !g.done ? ` · ${isDue ? '🔔 check-in due' : 'check in ' + fmtShort(g.checkIn)}` : ''}${g.done ? ` · 🎉 reached ${fmtShort(dayKey(g.doneTs))}` : ''}</div>
+      </button>`;
+    };
+    body = `<p class="hint" style="margin-top:0">Where you’re headed. Reaching a goal = +15 points.</p>
+      <div class="list">${active.length ? active.map(gcard).join('') : '<div class="empty">No active goals yet.</div>'}</div>
+      <button class="btn ghost wide" style="margin-top:12px" data-action="newGoal">＋ New goal</button>
+      ${done.length ? `<h3>Reached 🎉</h3><div class="list">${done.map(gcard).join('')}</div>` : ''}`;
+  }
+  $('#tab-toolkit').innerHTML = `<h2>Toolkit</h2>
+    <div class="seg">
+      <button class="${ui.kit === 'why' ? 'on' : ''}" data-action="kit" data-v="why">💭 My Why</button>
+      <button class="${ui.kit === 'moves' ? 'on' : ''}" data-action="kit" data-v="moves">🧰 Moves</button>
+      <button class="${ui.kit === 'goals' ? 'on' : ''}" data-action="kit" data-v="goals">🎯 Goals</button>
+    </div>${body}`;
+}
+
+/* ---------- WINS ---------- */
+function renderWins() {
+  const ev = pointEvents(), tk = todayKey(), wk = weekStartKey(tk), lwk = addDays(wk, -7);
+  const inRange = (e, a, b) => { const k = dayKey(e.ts); return k >= a && (!b || k < b); };
+  const thisWeek = ev.filter((e) => inRange(e, wk)).reduce((s, e) => s + e.pts, 0);
+  const lastWeek = ev.filter((e) => inRange(e, lwk, wk)).reduce((s, e) => s + e.pts, 0);
+  const total = ev.reduce((s, e) => s + e.pts, 0);
+  const days = [...Array(7)].map((_, i) => addDays(wk, i));
+  const perDay = days.map((k) => ev.filter((e) => dayKey(e.ts) === k).reduce((s, e) => s + e.pts, 0));
+  const max = Math.max(20, ...perDay);
+  const vibe = thisWeek === 0 ? 'The week is young 🌱' : thisWeek < 50 ? 'Warming up 🔥' : thisWeek < 100 ? 'On a roll 🛼💨' : thisWeek < 200 ? 'UNSTOPPABLE 👑' : 'LEGENDARY. Actual royalty. 👑✨🍓';
+  const weekEv = ev.filter((e) => inRange(e, wk));
+  $('#tab-wins').innerHTML = `<h2>Wins</h2>
+    <div class="card score"><div class="big">${thisWeek}</div><div class="lbl">points this week</div><div class="vibe">${vibe}</div></div>
+    <div class="stats3">
+      <div class="card"><b>${lastWeek}</b><span>last week</span></div>
+      <div class="card"><b>${streak()}🔥</b><span>day streak</span></div>
+      <div class="card"><b>${total}</b><span>all time</span></div>
+    </div>
+    <div class="card" style="margin-top:12px">
+      <div class="bars">${days.map((k, i) => `<div class="bar ${k === tk ? 'today' : ''}"><span class="v">${perDay[i] || ''}</span>
+        <div class="fill" style="height:${Math.round((perDay[i] / max) * 80)}px"></div>
+        <span>${keyToDate(k).toLocaleDateString([], { weekday: 'narrow' })}</span></div>`).join('')}</div>
+    </div>
+    <button class="btn primary wide" style="margin-top:14px" data-action="newWin">🏆 Log a win</button>
+    <p class="hint">Resisted craving +10 · made a move +5 · smaller portion +5 · honest slip log +2 · under goal for the day +20 (log at least one meal, even a 0g one) · goal reached +15</p>
+    <h3>This week</h3>
+    <div class="list">${weekEv.length ? weekEv.map((e) => `<div class="item win"><div class="badge">${e.bonus ? '✨' : '🏆'}</div>
+      <div class="body"><div class="meta">${fmtDateTime(e.ts)}</div><div class="txt">${esc(e.label)}</div></div><div class="pts">+${e.pts}</div></div>`).join('')
+      : '<div class="empty">No points yet this week — your first one is one tap away 💪</div>'}</div>`;
+}
+
+/* ---------- render ---------- */
+const RENDER = { today: renderToday, journal: renderJournal, toolkit: renderToolkit, wins: renderWins };
+function render() {
+  $$('.tab').forEach((t) => t.classList.toggle('active', t.id === 'tab-' + ui.tab));
+  $$('.bottomnav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === ui.tab));
+  RENDER[ui.tab]();
+}
+
+/* ---------- images ---------- */
+function fileToImage(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => { URL.revokeObjectURL(url); res(img); };
+    img.onerror = () => rej(new Error('Could not read that image'));
+    img.src = url;
+  });
+}
+function resizeImg(img, max, q) {
+  const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+  const c = document.createElement('canvas'); c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+  c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', q);
+}
+
+/* ---------- Gemini ---------- */
+const FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
+async function gemini(parts) {
+  const key = state.settings.apiKey.trim();
+  if (!key) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
+  const models = [state.settings.model.trim(), ...FALLBACK_MODELS.filter((m) => m !== state.settings.model.trim())];
+  let lastErr;
+  for (const model of models) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+      body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } })
+    });
+    const data = await res.json().catch(() => ({}));
+    if (res.ok) {
+      if (model !== state.settings.model) { state.settings.model = model; save(); }
+      const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+      return JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim());
+    }
+    lastErr = new Error(data.error?.message || `Gemini error ${res.status}`);
+    if (res.status !== 404) break; // only try other models if this one doesn't exist
+  }
+  throw lastErr;
+}
+async function estimateSugar(text, imgDataUrl) {
+  const prompt = `You help someone track ADDED sugar (not natural sugar in whole fruit, plain milk, or plain vegetables).
+Estimate the grams of ADDED sugar in the food or drink ${imgDataUrl ? 'shown in the photo and/or ' : ''}described below.
+Use any quantities given. If no quantity is given, assume what's visible in the photo or one typical serving, and say what you assumed.
+For restaurant or bakery items, estimate from typical recipes. Round to the nearest gram.
+Reply ONLY with JSON: {"food":"short name","added_sugar_g":number,"total_sugar_g":number,"confidence":"low"|"medium"|"high","assumptions":"one short friendly sentence"}
+
+Description: ${text || '(none — use the photo)'}`;
+  const parts = [{ text: prompt }];
+  if (imgDataUrl) parts.push({ inline_data: { mime_type: 'image/jpeg', data: imgDataUrl.split(',')[1] } });
+  return gemini(parts);
+}
+
+/* ---------- FOOD sheet ---------- */
+function openFoodSheet(entry, prefill = {}) {
+  const e = entry || { type: 'food', ts: prefill.ts || defaultTs(), text: prefill.text || '', grams: null, photo: null, slip: !!prefill.slip, aiNote: '' };
+  let photoThumb = e.photo, photoFull = null;
+  openSheet(`
+    <h2>${entry ? 'Edit food log' : 'Log food 🍽️'}</h2>
+    <button class="photo-box" id="photoBox">${photoThumb ? `<img src="${esc(photoThumb)}" alt="">` : '<span>📸 Add a photo</span>'}</button>
+    <input type="file" id="photoIn" accept="image/*" hidden>
+    <button class="link ${photoThumb ? '' : 'hidden'}" id="rmPhoto">Remove photo</button>
+    <label for="fText">What did you eat or drink?</label>
+    <textarea id="fText" rows="3" placeholder="2 chocolate-filled donuts + a burger">${esc(e.text)}</textarea>
+    <button class="ai" id="aiBtn">✨ Estimate sugar with Gemini</button>
+    <div id="aiOut" class="ai-out ${e.aiNote ? '' : 'hidden'}">${esc(e.aiNote)}</div>
+    <div class="grid2">
+      <div><label for="fGrams">Added sugar (g)</label><input id="fGrams" type="number" inputmode="decimal" min="0" step="0.5" placeholder="?" value="${e.grams ?? ''}"></div>
+      <div><label for="fTime">When</label><input id="fTime" type="datetime-local" value="${toLocalInput(e.ts)}"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="fSlip" ${e.slip ? 'checked' : ''}><span>🎂 This was a slip / I gave in<small>No shame. +2 for being honest.</small></span></label>
+    <div class="actions">
+      ${entry ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">Save</button>
+    </div>`, (s) => {
+    const box = $('#photoBox', s), input = $('#photoIn', s), out = $('#aiOut', s);
+    box.onclick = () => input.click();
+    input.onchange = async () => {
+      const f = input.files[0]; if (!f) return;
+      try {
+        const img = await fileToImage(f);
+        photoFull = resizeImg(img, 1024, 0.82); photoThumb = resizeImg(img, 360, 0.7);
+        box.innerHTML = `<img src="${photoThumb}" alt="">`; $('#rmPhoto', s).classList.remove('hidden');
+      } catch (err) { toast(err.message); }
+    };
+    $('#rmPhoto', s).onclick = () => { photoFull = photoThumb = null; box.innerHTML = '<span>📸 Add a photo</span>'; $('#rmPhoto', s).classList.add('hidden'); input.value = ''; };
+    $('#aiBtn', s).onclick = async () => {
+      const text = $('#fText', s).value.trim(), img = photoFull || photoThumb;
+      out.classList.remove('hidden', 'err');
+      if (!text && !img) { out.classList.add('err'); out.textContent = 'Add a photo or describe what you had first 🙂'; return; }
+      if (!state.settings.apiKey) { out.classList.add('err'); out.innerHTML = 'Add your Gemini API key in <b>⚙️ Settings</b> first. You can still type a number yourself!'; return; }
+      const btn = $('#aiBtn', s); btn.disabled = true; btn.textContent = '✨ Thinking…'; out.textContent = 'Counting sprinkles…';
+      try {
+        const r = await estimateSugar(text, img);
+        const g = Math.max(0, Number(r.added_sugar_g) || 0);
+        $('#fGrams', s).value = g;
+        out.textContent = `${r.food || 'Estimate'}: ~${g}g added sugar${r.total_sugar_g != null ? ` (${r.total_sugar_g}g total)` : ''} · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
+        if (!text && r.food) $('#fText', s).value = r.food;
+      } catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
+      btn.disabled = false; btn.textContent = '✨ Estimate sugar with Gemini';
+    };
+    $('#save', s).onclick = () => {
+      const text = $('#fText', s).value.trim();
+      if (!text && !photoThumb) { toast('Add a photo or a description 🙂'); return; }
+      const gv = $('#fGrams', s).value;
+      const wasSlip = !!e.slip;
+      Object.assign(e, {
+        text, photo: photoThumb, grams: gv === '' ? null : Math.max(0, Number(gv)),
+        ts: fromLocalInput($('#fTime', s).value), slip: $('#fSlip', s).checked,
+        aiNote: out.classList.contains('hidden') || out.classList.contains('err') ? (e.aiNote || '') : out.textContent
+      });
+      if (!entry) { e.id = uid(); state.entries.push(e); }
+      save(); closeSheet(); render();
+      toast(e.slip && !wasSlip ? 'Logged. +2 for honesty 💛 Tomorrow-you says thanks.' : 'Logged ✔️');
+    };
+    if (entry) $('#del', s).onclick = () => delEntry(entry.id);
+  });
+}
+
+/* ---------- CRAVING sheet ---------- */
+const randomWhy = (not) => { const pool = state.whys.filter((w) => w.id !== not); return pool.length ? pool[Math.floor(Math.random() * pool.length)] : state.whys[0]; };
+function openCravingSheet(entry) {
+  const e = entry || { type: 'craving', ts: defaultTs(), text: '', intensity: 3, strategy: null, outcome: null, outcomeTs: null };
+  let intensity = e.intensity || 3;
+  openSheet(`
+    <h2>${entry ? 'Edit craving' : 'Craving! 😭'}</h2>
+    ${entry ? '' : '<p class="hint" style="margin-top:0">Logging it is already a win. Get it out of your head and onto the page.</p>'}
+    <label for="cText">I’m craving…</label>
+    <textarea id="cText" rows="2" placeholder="chocolate donuts rn 😭">${esc(e.text)}</textarea>
+    <label>How strong?</label>
+    <div class="pickrow" id="intRow">${[1, 2, 3, 4, 5].map((n) => `<button data-n="${n}" class="${n === intensity ? 'on' : ''}">${'🔥'.repeat(n)}</button>`).join('')}</div>
+    <label for="cTime">When</label>
+    <input id="cTime" type="datetime-local" value="${toLocalInput(e.ts)}">
+    ${entry ? `
+      <label for="cMove">Move I used</label>
+      <select id="cMove"><option value="">— none yet —</option>${state.moves.map((m) => `<option value="${m.id}" ${m.id === e.strategy ? 'selected' : ''}>${m.emoji} ${esc(m.name)}</option>`).join('')}</select>
+      <label for="cOut">How it went</label>
+      <select id="cOut">
+        <option value="">— not sure yet —</option>
+        <option value="resisted" ${e.outcome === 'resisted' ? 'selected' : ''}>💪 Resisted</option>
+        <option value="smaller" ${e.outcome === 'smaller' ? 'selected' : ''}>🍰 Smaller portion</option>
+        <option value="gavein" ${e.outcome === 'gavein' ? 'selected' : ''}>🎂 Gave in</option>
+      </select>` : ''}
+    <div class="actions">
+      ${entry ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">${entry ? 'Save' : 'Next →'}</button>
+    </div>`, (s) => {
+    $$('#intRow button', s).forEach((b) => b.onclick = () => { intensity = Number(b.dataset.n); $$('#intRow button', s).forEach((x) => x.classList.toggle('on', x === b)); });
+    $('#save', s).onclick = () => {
+      const text = $('#cText', s).value.trim();
+      if (!text) { toast('What are you craving? 🍩'); return; }
+      Object.assign(e, { text, intensity, ts: fromLocalInput($('#cTime', s).value) });
+      if (entry) {
+        e.strategy = $('#cMove', s).value || null;
+        const o = $('#cOut', s).value || null;
+        if (o !== e.outcome) e.outcomeTs = o ? Date.now() : null;
+        e.outcome = o;
+        save(); closeSheet(); render(); toast('Saved ✔️');
+      } else {
+        e.id = uid(); state.entries.push(e); save(); render();
+        cravingStep2(e);
+      }
+    };
+    if (entry) $('#del', s).onclick = () => delEntry(entry.id);
+  });
+}
+function cravingStep2(e) {
+  let why = randomWhy();
+  openSheet(`
+    <h2>Breathe. You’ve got options. 🫶</h2>
+    ${why ? `<div class="why-card"><div class="why-label">💭 Remember why</div><div class="why-text" id="whyText">${esc(why.text)}</div></div>
+      ${state.whys.length > 1 ? '<button class="link" id="another">Show me another reason ↻</button>' : ''}`
+      : '<div class="empty">Add reasons in Toolkit → 💭 My Why so they show up here.</div>'}
+    <h3>What’s your move?</h3>
+    <div class="move-grid">${state.moves.map((m) => `<button class="move-pick" data-move="${m.id}"><span class="em">${esc(m.emoji)}</span><b>${esc(m.name)}</b>${m.notes ? `<small>${esc(m.notes.slice(0, 90))}${m.notes.length > 90 ? '…' : ''}</small>` : ''}</button>`).join('')}</div>
+    <button class="btn ghost wide" style="margin-top:14px" data-action="closeSheet">Not right now</button>`, (s) => {
+    const a = $('#another', s);
+    if (a) a.onclick = () => { why = randomWhy(why.id); $('#whyText', s).textContent = why.text; };
+    $$('.move-pick', s).forEach((b) => b.onclick = () => {
+      e.strategy = b.dataset.move; save(); closeSheet(); render();
+      toast('+5 for making a move 💪 Come back & tell me how it went!');
+    });
+  });
+}
+function setOutcome(id, v) {
+  const e = state.entries.find((x) => x.id === id); if (!e) return;
+  e.outcome = v; e.outcomeTs = Date.now(); save(); render();
+  if (v === 'resisted') toast('+10 RESISTED 💪🔥 look at youuuu!!');
+  if (v === 'smaller') { toast('+5 Smaller portion = still a win 🍰 Log what you had?'); openFoodSheet(null, { text: 'Smaller portion: ' + e.text, ts: Date.now() }); }
+  if (v === 'gavein') { toast('+2 for honesty 💛 Let’s log it, no shame.'); openFoodSheet(null, { text: e.text, slip: true, ts: Date.now() }); }
+}
+
+/* ---------- WIN sheet ---------- */
+const QUICK_WINS = [
+  ['📚', 'Read / listened to my book', 5], ['🥗', 'Ate something nourishing', 5], ['🍓', 'Made a swap', 5],
+  ['🚶‍♀️', 'Moved my body instead', 5], ['💧', 'Drank water first', 5], ['🌙', 'No sugar after dinner', 10],
+  ['😴', 'Slept without a crash', 10], ['🍰', 'Ate half, saved half', 5], ['🧘‍♀️', 'Ate it mindfully, no multitasking', 5]
+];
+function openWinSheet(entry) {
+  const e = entry || { type: 'win', ts: defaultTs(), text: '', points: 5 };
+  openSheet(`
+    <h2>${entry ? 'Edit win' : 'Log a win 🏆'}</h2>
+    ${entry ? '' : `<label>Quick picks</label><div class="pickrow" id="qw">${QUICK_WINS.map(([em, t, p], i) => `<button data-i="${i}">${em} ${t} <b>+${p}</b></button>`).join('')}</div>`}
+    <label for="wText">What did you do?</label>
+    <textarea id="wText" rows="2" placeholder="Walked past the donut shop like a queen 👑">${esc(e.text)}</textarea>
+    <div class="grid2">
+      <div><label for="wPts">Points</label><input id="wPts" type="number" inputmode="numeric" min="0" max="100" value="${Number(e.points) || 0}"></div>
+      <div><label for="wTime">When</label><input id="wTime" type="datetime-local" value="${toLocalInput(e.ts)}"></div>
+    </div>
+    <div class="actions">
+      ${entry ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">Save</button>
+    </div>`, (s) => {
+    $$('#qw button', s).forEach((b) => b.onclick = () => {
+      const [em, t, p] = QUICK_WINS[b.dataset.i]; $('#wText', s).value = `${em} ${t}`; $('#wPts', s).value = p;
+      $$('#qw button', s).forEach((x) => x.classList.toggle('on', x === b));
+    });
+    $('#save', s).onclick = () => {
+      const text = $('#wText', s).value.trim(); if (!text) { toast('Tell me the win! 🎉'); return; }
+      Object.assign(e, { text, points: Math.max(0, Math.min(100, Number($('#wPts', s).value) || 0)), ts: fromLocalInput($('#wTime', s).value) });
+      if (!entry) { e.id = uid(); state.entries.push(e); }
+      save(); closeSheet(); render(); toast(entry ? 'Saved ✔️' : `+${e.points} 🎉 WIN LOGGED!!`);
+    };
+    if (entry) $('#del', s).onclick = () => delEntry(entry.id);
+  });
+}
+
+/* ---------- JOURNAL sheet ---------- */
+const MOODS = ['😌', '🙂', '😐', '😔', '😰', '😤', '😴', '🥰'];
+function openJournalSheet(entry) {
+  const e = entry || { type: 'journal', ts: defaultTs(), title: '', text: '', mood: '' };
+  let mood = e.mood;
+  openSheet(`
+    <h2>${entry ? 'Reflection' : 'New reflection ✍️'}</h2>
+    <label>Mood</label>
+    <div class="pickrow" id="moods">${MOODS.map((m) => `<button class="${m === mood ? 'on' : ''}" data-m="${m}">${m}</button>`).join('')}</div>
+    <label for="jTitle">Title (optional)</label>
+    <input id="jTitle" value="${esc(e.title)}" placeholder="Rough night / Proud of today / …">
+    <label for="jText">What’s going on?</label>
+    <textarea id="jText" rows="12" placeholder="What happened, how my body felt, what I’d try next time…">${esc(e.text)}</textarea>
+    <label for="jTime">When</label>
+    <input id="jTime" type="datetime-local" value="${toLocalInput(e.ts)}">
+    <div class="actions">
+      ${entry ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">Save</button>
+    </div>
+    ${entry ? '<button class="link" id="pin" style="margin-top:10px">📌 Pin part of this to My Why</button>' : ''}`, (s) => {
+    $$('#moods button', s).forEach((b) => b.onclick = () => { mood = mood === b.dataset.m ? '' : b.dataset.m; $$('#moods button', s).forEach((x) => x.classList.toggle('on', x.dataset.m === mood)); });
+    $('#save', s).onclick = () => {
+      const text = $('#jText', s).value.trim(); if (!text) { toast('Write a little something first ✍️'); return; }
+      Object.assign(e, { text, title: $('#jTitle', s).value.trim(), mood, ts: fromLocalInput($('#jTime', s).value) });
+      if (!entry) { e.id = uid(); state.entries.push(e); }
+      save(); closeSheet(); render(); toast('Saved to your journal 📖');
+    };
+    if (entry) { $('#del', s).onclick = () => delEntry(entry.id); $('#pin', s).onclick = () => pinWhy(entry.id); }
+  });
+}
+
+/* ---------- WHY / MOVE / GOAL sheets ---------- */
+function openWhySheet(w, prefill) {
+  const e = w || { text: prefill?.text || '', src: prefill?.src || '' };
+  openSheet(`
+    <h2>${w ? 'Edit reason' : 'Add a reason 💭'}</h2>
+    ${prefill ? '<p class="hint" style="margin-top:0">Trim it down to the part that hits hardest — this is what you’ll see mid-craving.</p>' : ''}
+    <label for="yText">Why I’m doing this</label>
+    <textarea id="yText" rows="6" placeholder="Because I deserve to sleep through the night.">${esc(e.text)}</textarea>
+    <div class="actions">
+      ${w ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">Save</button>
+    </div>`, (s) => {
+    $('#save', s).onclick = () => {
+      const text = $('#yText', s).value.trim(); if (!text) return;
+      e.text = text;
+      if (!w) { e.id = uid(); e.ts = Date.now(); state.whys.push(e); }
+      save(); closeSheet(); ui.tab = 'toolkit'; ui.kit = 'why'; render(); toast('Added to My Why 💭');
+    };
+    if (w) $('#del', s).onclick = () => { if (confirm('Delete this reason?')) { state.whys = state.whys.filter((x) => x.id !== w.id); save(); closeSheet(); render(); } };
+  });
+}
+function pinWhy(entryId) {
+  const j = state.entries.find((x) => x.id === entryId); if (!j) return;
+  openWhySheet(null, { text: j.text, src: `${j.title || 'Journal'} · ${fmtShort(dayKey(j.ts))}` });
+}
+function openMoveSheet(m) {
+  const e = m || { emoji: '✨', name: '', notes: '' };
+  openSheet(`
+    <h2>${m ? 'Edit move' : 'New move 🧰'}</h2>
+    <div class="grid2" style="grid-template-columns:80px 1fr">
+      <div><label for="mEm">Emoji</label><input id="mEm" value="${esc(e.emoji)}" maxlength="4" style="text-align:center;font-size:22px"></div>
+      <div><label for="mName">Name</label><input id="mName" value="${esc(e.name)}" placeholder="Call a friend"></div>
+    </div>
+    <label for="mNotes">Notes & ideas</label>
+    <textarea id="mNotes" rows="6" placeholder="${esc(MOVE_HINTS[e.id] || 'What this looks like for me…')}">${esc(e.notes)}</textarea>
+    <div class="actions">
+      ${m ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">Save</button>
+    </div>`, (s) => {
+    $('#save', s).onclick = () => {
+      const name = $('#mName', s).value.trim(); if (!name) { toast('Give it a name 🙂'); return; }
+      Object.assign(e, { name, emoji: $('#mEm', s).value.trim() || '✨', notes: $('#mNotes', s).value.trim() });
+      if (!m) { e.id = uid(); state.moves.push(e); }
+      save(); closeSheet(); render(); toast('Move saved 🧰');
+    };
+    if (m) $('#del', s).onclick = () => { if (confirm(`Delete “${m.name}”? Past cravings keep their history.`)) { state.moves = state.moves.filter((x) => x.id !== m.id); save(); closeSheet(); render(); } };
+  });
+}
+function openGoalSheet(g) {
+  const e = g || { text: '', checkIn: '', done: false, doneTs: null };
+  const tk = todayKey();
+  openSheet(`
+    <h2>${g ? 'Goal 🎯' : 'New goal 🎯'}</h2>
+    <label for="gText">My goal</label>
+    <textarea id="gText" rows="6" placeholder="For 2 weeks, I'll eat half of any dessert…">${esc(e.text)}</textarea>
+    <label for="gDate">Check in on (optional)</label>
+    <input id="gDate" type="date" value="${esc(e.checkIn || '')}">
+    <div class="pickrow" style="margin-top:8px">
+      <button data-d="7">+1 week</button><button data-d="14">+2 weeks</button><button data-d="30">+1 month</button><button data-d="0">No date</button>
+    </div>
+    ${g && !g.done ? '<button class="btn wide" id="reach" style="margin-top:18px;background:var(--mint);color:#fff">🎉 I reached this goal! (+15)</button>' : ''}
+    ${g && g.done ? '<button class="link" id="unreach" style="margin-top:12px">Mark as not reached yet</button>' : ''}
+    <div class="actions">
+      ${g ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">Save</button>
+    </div>`, (s) => {
+    $$('.pickrow button', s).forEach((b) => b.onclick = () => { const d = Number(b.dataset.d); $('#gDate', s).value = d ? addDays(tk, d) : ''; });
+    const commit = () => {
+      const text = $('#gText', s).value.trim(); if (!text) { toast('Write your goal first 🎯'); return false; }
+      Object.assign(e, { text, checkIn: $('#gDate', s).value || '' });
+      if (!g) { e.id = uid(); e.ts = Date.now(); state.goals.push(e); }
+      return true;
+    };
+    $('#save', s).onclick = () => { if (commit()) { save(); closeSheet(); render(); toast('Goal saved 🎯'); } };
+    const r = $('#reach', s); if (r) r.onclick = () => { if (commit()) { e.done = true; e.doneTs = Date.now(); save(); closeSheet(); render(); toast('+15 GOAL REACHED 🎉🎉🎉 Set the next one?'); } };
+    const u = $('#unreach', s); if (u) u.onclick = () => { e.done = false; e.doneTs = null; save(); closeSheet(); render(); };
+    if (g) $('#del', s).onclick = () => { if (confirm('Delete this goal?')) { state.goals = state.goals.filter((x) => x.id !== g.id); save(); closeSheet(); render(); } };
+  });
+}
+
+/* ---------- SETTINGS ---------- */
+function openSettings() {
+  const st = state.settings;
+  openSheet(`
+    <h2>Settings ⚙️</h2>
+    <label for="sKey">Gemini API key</label>
+    <div style="display:flex;gap:8px"><input id="sKey" type="password" value="${esc(st.apiKey)}" placeholder="Paste your key from aistudio.google.com" autocomplete="off">
+      <button class="btn ghost" id="showKey" style="padding:0 14px">👁️</button></div>
+    <p class="hint">Stored only on this device. Heads up: Google may use free-tier requests (including food photos) to improve its products.</p>
+    <label for="sModel">Gemini model</label>
+    <input id="sModel" value="${esc(st.model)}">
+    <button class="btn ghost wide" id="test" style="margin-top:10px">🧪 Test my key</button>
+    <div id="testOut" class="ai-out hidden"></div>
+    <div class="grid2" style="grid-template-columns:1fr 1fr">
+      <div><label for="sGoal">Daily goal (g)</label><input id="sGoal" type="number" inputmode="numeric" min="1" value="${st.goal}"></div>
+      <div><label for="sPGoal">PMS / period goal (g)</label><input id="sPGoal" type="number" inputmode="numeric" min="1" value="${st.periodGoal}"></div>
+    </div>
+    <div class="actions"><button class="btn ghost" data-action="closeSheet">Close</button><button class="btn primary" id="save">Save settings</button></div>
+    <h3>Backup</h3>
+    <p class="hint" style="margin-top:0">Your data lives on this phone only. Export a backup now and then!</p>
+    <div style="display:flex;gap:10px"><button class="btn ghost" id="exp" style="flex:1">⬇️ Export</button><button class="btn ghost" id="imp" style="flex:1">⬆️ Import</button></div>
+    <input type="file" id="impIn" accept="application/json,.json" hidden>
+    <button class="link danger" id="reset" style="margin-top:16px;color:var(--berry)">Erase everything</button>`, (s) => {
+    $('#showKey', s).onclick = () => { const k = $('#sKey', s); k.type = k.type === 'password' ? 'text' : 'password'; };
+    const apply = () => {
+      st.apiKey = $('#sKey', s).value.trim();
+      st.model = $('#sModel', s).value.trim() || 'gemini-3.5-flash';
+      st.goal = Math.max(1, Number($('#sGoal', s).value) || 35);
+      st.periodGoal = Math.max(1, Number($('#sPGoal', s).value) || 40);
+    };
+    $('#save', s).onclick = () => { apply(); save(); closeSheet(); render(); toast('Settings saved ✔️'); };
+    $('#test', s).onclick = async () => {
+      apply(); save();
+      const out = $('#testOut', s); out.classList.remove('hidden', 'err'); out.textContent = 'Testing…';
+      try { const r = await estimateSugar('one 12 oz can of regular Coca-Cola', null); out.textContent = `✅ It works! (${st.model}) A can of Coke ≈ ${r.added_sugar_g}g added sugar.`; $('#sModel', s).value = st.model; }
+      catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
+    };
+    $('#exp', s).onclick = () => {
+      const blob = new Blob([JSON.stringify({ ...state, settings: { ...state.settings, apiKey: '' } }, null, 2)], { type: 'application/json' });
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `crash-buster-backup-${todayKey()}.json`; a.click();
+      setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+    };
+    $('#imp', s).onclick = () => $('#impIn', s).click();
+    $('#impIn', s).onchange = async (ev) => {
+      try {
+        const data = JSON.parse(await ev.target.files[0].text());
+        if (!Array.isArray(data.entries)) throw new Error('That doesn’t look like a Crash Buster backup');
+        if (!confirm('Replace everything on this device with this backup?')) return;
+        const key = state.settings.apiKey;
+        state = Object.assign(DEFAULT_STATE(), data); state.settings = Object.assign(DEFAULT_STATE().settings, data.settings || {});
+        if (!state.settings.apiKey) state.settings.apiKey = key;
+        await save(); closeSheet(); render(); toast('Backup restored ✔️');
+      } catch (err) { toast('😵 ' + err.message); }
+    };
+    $('#reset', s).onclick = async () => {
+      if (!confirm('Erase ALL entries, reasons, goals and settings? This can’t be undone.')) return;
+      state = DEFAULT_STATE(); await save(); closeSheet(); render(); toast('Fresh start ✨');
+    };
+  });
+}
+
+/* ---------- misc actions ---------- */
+function delEntry(id) {
+  if (!confirm('Delete this entry?')) return;
+  state.entries = state.entries.filter((x) => x.id !== id); save(); closeSheet(); render(); toast('Deleted');
+}
+function togglePeriod() {
+  const k = ui.day;
+  if (state.periodDays[k]) { let d = k; while (state.periodDays[d]) { delete state.periodDays[d]; d = addDays(d, 1); } toast(`Back to ${state.settings.goal}g`); }
+  else { for (let i = 0; i < 7; i++) state.periodDays[addDays(k, i)] = true; toast(`🌸 ${state.settings.periodGoal}g goal for the next 7 days. Be gentle with you.`); }
+  save(); render();
+}
+
+const ACTIONS = {
+  tab: (el) => { ui.tab = el.dataset.tab; render(); window.scrollTo(0, 0); },
+  openSettings, closeSheet,
+  dayPrev: () => { ui.day = addDays(ui.day, -1); ui.followToday = false; render(); },
+  dayNext: () => { if (ui.day < todayKey()) ui.day = addDays(ui.day, 1); ui.followToday = ui.day === todayKey(); render(); },
+  dayToday: () => { ui.day = todayKey(); ui.followToday = true; render(); },
+  togglePeriod,
+  newFood: () => openFoodSheet(), newCraving: () => openCravingSheet(), newWin: () => openWinSheet(), newJournal: () => openJournalSheet(),
+  editEntry: (el) => {
+    const e = state.entries.find((x) => x.id === el.dataset.id); if (!e) return;
+    ({ food: openFoodSheet, craving: openCravingSheet, win: openWinSheet, journal: openJournalSheet })[e.type](e);
+  },
+  outcome: (el) => setOutcome(el.dataset.id, el.dataset.v),
+  pickMove: (el) => { const e = state.entries.find((x) => x.id === el.dataset.id); if (e) cravingStep2(e); },
+  pinWhy: (el) => pinWhy(el.dataset.id),
+  jFilter: (el) => { ui.jFilter = el.dataset.v; render(); },
+  kit: (el) => { ui.kit = el.dataset.v; render(); },
+  newWhy: () => openWhySheet(), editWhy: (el) => openWhySheet(state.whys.find((x) => x.id === el.dataset.id)),
+  newMove: () => openMoveSheet(), editMove: (el) => openMoveSheet(moveById(el.dataset.id)),
+  newGoal: () => openGoalSheet(), editGoal: (el) => openGoalSheet(state.goals.find((x) => x.id === el.dataset.id))
+};
+document.addEventListener('click', (ev) => {
+  const el = ev.target.closest('[data-action]'); if (!el) return;
+  const fn = ACTIONS[el.dataset.action]; if (!fn) return;
+  ev.preventDefault(); ev.stopPropagation(); fn(el, ev);
+});
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && ui.followToday && ui.day !== todayKey()) { ui.day = todayKey(); render(); }
+});
+
+/* ---------- boot ---------- */
+(async function boot() {
+  try {
+    const saved = await idbGet('state');
+    if (saved) { state = Object.assign(DEFAULT_STATE(), saved); state.settings = Object.assign(DEFAULT_STATE().settings, saved.settings || {}); }
+    else { seed(); await save(); }
+  } catch (e) { seed(); toast('⚠️ Storage unavailable — data won’t persist'); }
+  render();
+  if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
+  if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
+})();
+})();
+</script>
+</body>
+</html>
