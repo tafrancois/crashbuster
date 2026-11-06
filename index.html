@@ -296,7 +296,7 @@ const DEFAULT_STATE = () => ({
   version: 1,
   entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(),
   periodDays: {},
-  settings: { apiKey: '', model: 'gemini-3.5-flash', goal: 35, periodGoal: 40, totalFlag: 90 }
+  settings: { apiKey: '', model: 'gemini-3.5-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true }
 });
 let state = DEFAULT_STATE();
 const ui = { tab: 'today', day: todayKey(), followToday: true, jFilter: 'journal', kit: 'why' };
@@ -395,7 +395,7 @@ function entryCard(e, showDate = false) {
         ${e.aiNote ? `<div class="sub">✨ ${esc(e.aiNote)}</div>` : ''}</div>
       ${e.photo ? `<img class="thumb" src="${esc(e.photo)}" alt="">` : ''}
       <div class="grams">${e.grams == null || e.grams === '' ? '?' : round(Number(e.grams))}<small>g</small>
-        <div class="nat">${e.natural ? `+${round(Number(e.natural))}g natural` : 'added'}</div></div>
+        ${state.settings.trackNatural ? `<div class="nat">${e.natural ? `+${round(Number(e.natural))}g natural` : 'added'}</div>` : ''}</div>
     </button>`;
   }
   if (e.type === 'craving') {
@@ -469,8 +469,8 @@ function renderToday() {
         <div class="center"><div class="num">${grams}<small>g</small></div><div class="of">of ${goal}g added sugar</div></div>
       </div>
       <div class="status">${status}</div>
-      <div class="natural-line">🍓 <b>${natural}g</b> natural sugar · <b>${round(grams + natural)}g</b> total</div>
-      ${state.settings.totalFlag && grams + natural > state.settings.totalFlag ? `<div class="flag">🚩 ${state.settings.totalFlag === 90 ? 'You’ve passed 90g total sugar. The UK’s NHS recommends keeping total sugar (added + natural) under 90g a day — this is your stopping point for today 💛' : `You’ve passed your ${state.settings.totalFlag}g total sugar limit — this is your stopping point for today 💛`}</div>` : ''}
+      ${state.settings.trackNatural ? `<div class="natural-line">🍓 <b>${natural}g</b> natural sugar · <b>${round(grams + natural)}g</b> total</div>` : ''}
+      ${state.settings.trackNatural && state.settings.totalFlag && grams + natural > state.settings.totalFlag ? `<div class="flag">🚩 ${state.settings.totalFlag === 90 ? 'You’ve passed 90g total sugar. The UK’s NHS recommends keeping total sugar (added + natural) under 90g a day — this is your stopping point for today 💛' : `You’ve passed your ${state.settings.totalFlag}g total sugar limit — this is your stopping point for today 💛`}</div>` : ''}
       ${unknown ? `<div class="unknown">${unknown} food log${unknown > 1 ? 's' : ''} still need${unknown > 1 ? '' : 's'} a sugar number</div>` : ''}
       <button class="pill ${period ? 'on' : ''}" data-action="togglePeriod">🌸 ${period ? `PMS / period goal on · ${state.settings.periodGoal}g` : `PMS / period week? Tap for ${state.settings.periodGoal}g`}</button>
     </div>
@@ -656,11 +656,11 @@ function openFoodSheet(entry, prefill = {}) {
     <textarea id="fText" rows="3" placeholder="2 chocolate-filled donuts + a burger">${esc(e.text)}</textarea>
     <button class="ai" id="aiBtn">✨ Estimate sugar with Gemini</button>
     <div id="aiOut" class="ai-out ${e.aiNote ? '' : 'hidden'}">${esc(e.aiNote)}</div>
-    <div class="grid2" style="grid-template-columns:1fr 1fr">
+    <div class="grid2" style="grid-template-columns:${state.settings.trackNatural ? '1fr 1fr' : '1fr'}">
       <div><label for="fGrams">🍩 Added sugar (g)</label><input id="fGrams" type="number" inputmode="decimal" min="0" step="0.5" placeholder="?" value="${e.grams ?? ''}"></div>
-      <div><label for="fNat">🍓 Natural sugar (g)</label><input id="fNat" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${e.natural ?? ''}"></div>
+      ${state.settings.trackNatural ? `<div><label for="fNat">🍓 Natural sugar (g)</label><input id="fNat" type="number" inputmode="decimal" min="0" step="0.5" placeholder="0" value="${e.natural ?? ''}"></div>` : ''}
     </div>
-    <p class="hint">Added = sugar, syrups, honey, juice concentrate put in during making. Natural = what’s already in whole fruit, plain milk, veggies.</p>
+    ${state.settings.trackNatural ? '<p class="hint">Added = sugar, syrups, honey, juice concentrate put in during making. Natural = what’s already in whole fruit, plain milk, veggies.</p>' : ''}
     <label for="fTime">When</label><input id="fTime" type="datetime-local" value="${toLocalInput(e.ts)}">
     <label class="check"><input type="checkbox" id="fSlip" ${e.slip ? 'checked' : ''}><span>🎂 This was a slip / I gave in<small>No shame. +2 for being honest.</small></span></label>
     <div class="actions">
@@ -689,8 +689,8 @@ function openFoodSheet(entry, prefill = {}) {
         const r = await estimateSugar(text, img);
         const g = Math.max(0, Number(r.added_sugar_g) || 0);
         const nat = Math.max(0, Number(r.natural_sugar_g ?? (Number(r.total_sugar_g) - g)) || 0);
-        $('#fGrams', s).value = g; $('#fNat', s).value = nat;
-        out.textContent = `${r.food || 'Estimate'}: ~${g}g added + ~${nat}g natural sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
+        $('#fGrams', s).value = g; if ($('#fNat', s)) $('#fNat', s).value = nat;
+        out.textContent = `${r.food || 'Estimate'}: ~${g}g added${$('#fNat', s) ? ` + ~${nat}g natural` : ''} sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
         if (!text && r.food) $('#fText', s).value = r.food;
       } catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
       btn.disabled = false; btn.textContent = '✨ Estimate sugar with Gemini';
@@ -702,7 +702,7 @@ function openFoodSheet(entry, prefill = {}) {
       const wasSlip = !!e.slip;
       Object.assign(e, {
         text, photo: photoThumb, grams: gv === '' ? null : Math.max(0, Number(gv)),
-        natural: $('#fNat', s).value === '' ? null : Math.max(0, Number($('#fNat', s).value)),
+        natural: !$('#fNat', s) ? (e.natural ?? null) : $('#fNat', s).value === '' ? null : Math.max(0, Number($('#fNat', s).value)),
         ts: fromLocalInput($('#fTime', s).value), slip: $('#fSlip', s).checked,
         aiNote: out.classList.contains('hidden') || out.classList.contains('err') ? (e.aiNote || '') : out.textContent
       });
@@ -956,9 +956,10 @@ function openSettings() {
       <div><label for="sGoal">Daily goal (g)</label><input id="sGoal" type="number" inputmode="numeric" min="1" value="${st.goal}"></div>
       <div><label for="sPGoal">PMS / period goal (g)</label><input id="sPGoal" type="number" inputmode="numeric" min="1" value="${st.periodGoal}"></div>
     </div>
+    <label class="check"><input type="checkbox" id="sNat" ${st.trackNatural ? 'checked' : ''}><span>🍓 Track natural sugar too<small>Turn off to only see added sugar. Numbers you already logged are kept.</small></span></label>
     <label for="sFlag">🚩 Heads-up when total sugar (added + natural) passes (g)</label>
     <input id="sFlag" type="number" inputmode="numeric" min="0" value="${st.totalFlag}">
-    <p class="hint">Set to 0 to turn the heads-up off.</p>
+    <p class="hint">Set to 0 to turn the heads-up off. Only shows when natural sugar tracking is on.</p>
     <div class="actions"><button class="btn ghost" data-action="closeSheet">Close</button><button class="btn primary" id="save">Save settings</button></div>
     <h3>Backup</h3>
     <p class="hint" style="margin-top:0">Your data lives on this phone only. Export a backup now and then!</p>
@@ -971,6 +972,7 @@ function openSettings() {
       st.model = $('#sModel', s).value.trim() || 'gemini-3.5-flash';
       st.goal = Math.max(1, Number($('#sGoal', s).value) || 35);
       st.periodGoal = Math.max(1, Number($('#sPGoal', s).value) || 40);
+      st.trackNatural = $('#sNat', s).checked;
       const fv = $('#sFlag', s).value; st.totalFlag = fv === '' ? 90 : Math.max(0, Number(fv) || 0);
     };
     $('#save', s).onclick = () => { apply(); save(); closeSheet(); render(); toast('Settings saved ✔️'); };
