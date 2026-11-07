@@ -180,7 +180,7 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 
 /* sheet */
 .sheet-wrap{position:fixed;inset:0;z-index:20;background:rgba(30,15,30,.45);display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
-.sheet{background:var(--card);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:24px 24px 0 0;
+.sheet{overscroll-behavior:contain;touch-action:pan-y;will-change:transform;background:var(--card);width:100%;max-width:640px;max-height:92vh;overflow-y:auto;border-radius:24px 24px 0 0;
   padding:10px 18px calc(env(safe-area-inset-bottom) + 18px);animation:up .22s ease;-webkit-overflow-scrolling:touch}
 .sheet::before{content:"";display:block;width:44px;height:5px;border-radius:9px;background:var(--line);margin:2px auto 12px}
 @keyframes up{from{transform:translateY(40px);opacity:.4}to{transform:none;opacity:1}}
@@ -204,6 +204,15 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .move-pick .em{font-size:26px}
 .move-pick small{color:var(--muted);font-size:12px;line-height:1.3}
 .move-pick:active{transform:scale(.96)}
+.mf{background:var(--bg);border-radius:16px;padding:12px;margin-bottom:12px}
+.mf-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
+.mf-item{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;text-align:left;font-weight:600;font-size:15px}
+.mf-item.on{border-color:var(--berry);background:var(--berry-soft)}
+.mf-item .mf-g{font-weight:800;color:var(--honey);white-space:nowrap}
+.mf-item .mf-g small{color:var(--mint);font-weight:700}
+.mf-row{display:grid;gap:6px;margin-bottom:8px;align-items:center}
+.mf-row input{padding:10px 8px}
+.mf-row .fd{font-size:18px}
 .qw-row{display:grid;grid-template-columns:52px 1fr 60px 36px;gap:6px;margin-bottom:8px;align-items:center}
 .qw-row input{padding:10px 8px}
 .qw-row .qe{text-align:center;font-size:20px}
@@ -303,9 +312,9 @@ const DEFAULT_QUICK_WINS = () => [
 ].map(([emoji, text, points], i) => ({ id: 'qw' + i, emoji, text, points }));
 const DEFAULT_STATE = () => ({
   version: 1,
-  entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(), quickWins: DEFAULT_QUICK_WINS(),
+  entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(), quickWins: DEFAULT_QUICK_WINS(), foods: [],
   periodDays: {},
-  settings: { apiKey: '', model: 'gemini-3.7-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true }
+  settings: { apiKey: '', model: 'gemini-3.7-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true, webSearch: true }
 });
 let state = DEFAULT_STATE();
 const ui = { tab: 'today', day: todayKey(), followToday: true, jFilter: 'journal', kit: 'why' };
@@ -387,6 +396,29 @@ function openSheet(html, mount) {
 }
 function closeSheet() { $('#sheetWrap').classList.add('hidden'); $('#sheet').innerHTML = ''; document.body.style.overflow = ''; }
 $('#sheetWrap').addEventListener('click', (e) => { if (e.target.id === 'sheetWrap') closeSheet(); });
+// swipe down to dismiss (when the sheet is scrolled to the top)
+(() => {
+  const sh = $('#sheet'); let y0 = 0, dy = 0, t0 = 0, dragging = false, armed = false;
+  sh.addEventListener('touchstart', (e) => {
+    if (e.touches.length !== 1) return;
+    armed = sh.scrollTop <= 0; dragging = false; y0 = e.touches[0].clientY; dy = 0; t0 = Date.now();
+  }, { passive: true });
+  sh.addEventListener('touchmove', (e) => {
+    if (!armed) return;
+    dy = e.touches[0].clientY - y0;
+    if (!dragging && dy > 8 && sh.scrollTop <= 0) { dragging = true; sh.style.transition = 'none'; document.activeElement?.blur?.(); }
+    if (dragging) { e.preventDefault(); sh.style.transform = `translateY(${Math.max(0, dy)}px)`; }
+    else if (dy < 0) armed = false; // scrolling up: let it scroll normally
+  }, { passive: false });
+  const end = () => {
+    if (!dragging) return; dragging = false;
+    const fast = dy / Math.max(1, Date.now() - t0) > 0.6;
+    sh.style.transition = 'transform .22s ease';
+    if (dy > 130 || (fast && dy > 90)) { sh.style.transform = 'translateY(100%)'; setTimeout(() => { closeSheet(); sh.style.transform = ''; sh.style.transition = ''; }, 200); }
+    else { sh.style.transform = ''; setTimeout(() => { sh.style.transition = ''; }, 230); }
+  };
+  sh.addEventListener('touchend', end); sh.addEventListener('touchcancel', end);
+})();
 
 function defaultTs() {
   if (ui.day === todayKey()) return Date.now();
@@ -618,8 +650,9 @@ function resizeImg(img, max, q) {
 /* ---------- Gemini ---------- */
 const FALLBACK_MODELS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-let lastModelUsed = '';
-async function gemini(parts) {
+let lastModelUsed = '', lastSearched = false;
+async function gemini(parts, opts = {}) {
+  let useSearch = !!opts.search;
   const key = state.settings.apiKey.trim();
   if (!key) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
   const chosen = state.settings.model.trim();
@@ -632,17 +665,21 @@ async function gemini(parts) {
         res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-          body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } })
+          body: JSON.stringify(useSearch
+            ? { contents: [{ parts }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2 } }
+            : { contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } })
         });
         data = await res.json().catch(() => ({}));
       } catch (e) { throw new Error('Couldn’t reach Gemini — are you online?'); }
       if (res.ok) {
         lastModelUsed = model;
+        lastSearched = !!data.candidates?.[0]?.groundingMetadata?.webSearchQueries?.length;
         const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
         return parseGeminiJSON(txt, model, data);
       }
       lastErr = new Error(`${data.error?.message || 'Gemini error'} [${model} · ${res.status}]`);
-      if (res.status === 404) { if (model === chosen) { /* model retired */ } break; }      // try next model
+      if (useSearch && res.status === 400 && /tool|search|grounding/i.test(lastErr.message)) { useSearch = false; attempt--; continue; } // this model can't search: retry without
+      if (res.status === 404) break;      // model doesn't exist: try next model
       if (res.status === 429 || res.status >= 500) { busy = true; if (attempt === 0) { await sleep(1200); continue; } break; } // busy: retry once, then next model
       if (res.status === 400 && /api key/i.test(lastErr.message)) throw new Error('Google says that API key isn’t valid. Double-check you copied the whole thing.');
       throw lastErr; // anything else (bad key, etc.) — stop
@@ -678,13 +715,13 @@ async function estimateSugar(text, imgDataUrl) {
   const prompt = `You help someone track their sugar, split into ADDED sugar (sugar, syrups, honey, juice concentrate etc. added during preparation) and NATURAL sugar (naturally present in whole fruit, plain milk, plain vegetables, etc.).
 Estimate the grams of ADDED sugar and NATURAL sugar in the food or drink ${imgDataUrl ? 'shown in the photo and/or ' : ''}described below.
 Use any quantities given. If no quantity is given, assume what's visible in the photo or one typical serving, and say what you assumed.
-For restaurant or bakery items, estimate from typical recipes. Round to the nearest gram.
+For a branded or packaged product or a chain restaurant item, look up its official nutrition facts (the "Includes Xg Added Sugars" line) and use them. If you can read a nutrition label in the photo, trust the label. For homemade or bakery items, estimate from typical recipes. Round to the nearest gram.
 If there are several items, add them together into ONE object. Reply ONLY with a single JSON object: {"food":"short name","added_sugar_g":number,"natural_sugar_g":number,"total_sugar_g":number,"confidence":"low"|"medium"|"high","assumptions":"one short friendly sentence"}
 
 Description: ${text || '(none — use the photo)'}`;
   const parts = [{ text: prompt }];
   if (imgDataUrl) parts.push({ inlineData: { mimeType: 'image/jpeg', data: imgDataUrl.split(',')[1] } });
-  return gemini(parts);
+  return gemini(parts, { search: state.settings.webSearch });
 }
 
 /* ---------- FOOD sheet ---------- */
@@ -693,6 +730,11 @@ function openFoodSheet(entry, prefill = {}) {
   let photoThumb = e.photo, photoFull = null;
   openSheet(`
     <h2>${entry ? 'Edit food log' : 'Log food 🍽️'}</h2>
+    ${entry ? '' : `<div class="mf">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><label style="margin-top:0">⭐ My Foods</label>${state.foods.length ? '<button class="link" id="mfManage">Manage</button>' : ''}</div>
+      ${state.foods.length ? `<input id="mfSearch" type="search" placeholder="Search my foods…" autocomplete="off"><div class="mf-list" id="mfList"></div>`
+        : '<p class="hint" style="margin-top:0">Tick “⭐ Save to My Foods” below when you log something you have a lot — next time it’s one tap.</p>'}
+    </div>`}
     <button class="photo-box" id="photoBox">${photoThumb ? `<img src="${esc(photoThumb)}" alt="">` : '<span>📸 Add a photo</span>'}</button>
     <input type="file" id="photoIn" accept="image/*" hidden>
     <button class="link ${photoThumb ? '' : 'hidden'}" id="rmPhoto">Remove photo</button>
@@ -706,6 +748,7 @@ function openFoodSheet(entry, prefill = {}) {
     </div>
     ${state.settings.trackNatural ? '<p class="hint">Added = sugar, syrups, honey, juice concentrate put in during making. Natural = what’s already in whole fruit, plain milk, veggies.</p>' : ''}
     <label for="fTime">When</label><input id="fTime" type="datetime-local" value="${toLocalInput(e.ts)}">
+    <label class="check"><input type="checkbox" id="fFav" ${state.foods.some((f) => f.name.toLowerCase() === (e.text || '').trim().toLowerCase()) ? 'checked' : ''}><span>⭐ Save to My Foods<small>So you can add it in one tap next time.</small></span></label>
     <label class="check"><input type="checkbox" id="fSlip" ${e.slip ? 'checked' : ''}><span>🎂 This was a slip / I gave in<small>No shame. +2 for being honest.</small></span></label>
     <div class="actions">
       ${entry ? '<button class="btn danger" id="del">Delete</button>' : ''}
@@ -713,6 +756,26 @@ function openFoodSheet(entry, prefill = {}) {
       <button class="btn primary" id="save">Save</button>
     </div>`, (s) => {
     const box = $('#photoBox', s), input = $('#photoIn', s), out = $('#aiOut', s);
+    let fromFood = null;
+    const drawFoods = () => {
+      const list = $('#mfList', s); if (!list) return;
+      const q = ($('#mfSearch', s).value || '').trim().toLowerCase();
+      const items = state.foods.filter((f) => !q || f.name.toLowerCase().includes(q))
+        .sort((a, b) => (b.uses || 0) - (a.uses || 0) || (b.lastUsed || 0) - (a.lastUsed || 0)).slice(0, q ? 30 : 6);
+      list.innerHTML = items.length ? items.map((f) => `<button class="mf-item ${fromFood === f.id ? 'on' : ''}" data-f="${f.id}">
+          <span class="mf-name">${esc(f.name)}</span>
+          <span class="mf-g">${f.added ?? '?'}g${state.settings.trackNatural && f.natural ? ` <small>+${f.natural}g nat</small>` : ''}</span></button>`).join('')
+        : '<p class="hint">No match — log it below and tick ⭐ to save it.</p>';
+      $$('.mf-item', list).forEach((b) => b.onclick = () => {
+        const f = state.foods.find((x) => x.id === b.dataset.f); if (!f) return;
+        fromFood = f.id;
+        $('#fText', s).value = f.name; $('#fGrams', s).value = f.added ?? ''; if ($('#fNat', s)) $('#fNat', s).value = f.natural ?? '';
+        $('#fFav', s).checked = true; out.classList.add('hidden'); drawFoods();
+        toast(`⭐ ${f.name} filled in — tap Save`);
+      });
+    };
+    if ($('#mfSearch', s)) { $('#mfSearch', s).oninput = drawFoods; drawFoods(); }
+    if ($('#mfManage', s)) $('#mfManage', s).onclick = () => openFoodsManager();
     box.onclick = () => input.click();
     input.onchange = async () => {
       const f = input.files[0]; if (!f) return;
@@ -734,7 +797,7 @@ function openFoodSheet(entry, prefill = {}) {
         const g = Math.max(0, Number(r.added_sugar_g) || 0);
         const nat = Math.max(0, Number(r.natural_sugar_g ?? (Number(r.total_sugar_g) - g)) || 0);
         $('#fGrams', s).value = g; if ($('#fNat', s)) $('#fNat', s).value = nat;
-        out.textContent = `${r.food || 'Estimate'}: ~${g}g added${$('#fNat', s) ? ` + ~${nat}g natural` : ''} sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
+        out.textContent = `${lastSearched ? '🔎 ' : ''}${r.food || 'Estimate'}: ~${g}g added${$('#fNat', s) ? ` + ~${nat}g natural` : ''} sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
         if (!text && r.food) $('#fText', s).value = r.food;
       } catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
       btn.disabled = false; btn.textContent = '✨ Estimate sugar with Gemini';
@@ -751,10 +814,44 @@ function openFoodSheet(entry, prefill = {}) {
         aiNote: out.classList.contains('hidden') || out.classList.contains('err') ? (e.aiNote || '') : out.textContent
       });
       if (!entry) { e.id = uid(); state.entries.push(e); }
+      let favMsg = '';
+      if ($('#fFav', s).checked && text) {
+        let f = state.foods.find((x) => x.id === fromFood) || state.foods.find((x) => x.name.toLowerCase() === text.toLowerCase());
+        if (!f) { f = { id: uid(), name: text, uses: 0 }; state.foods.push(f); favMsg = ' ⭐ Saved to My Foods'; }
+        Object.assign(f, { name: text, added: e.grams, natural: e.natural, lastUsed: Date.now() });
+        if (!entry || fromFood) f.uses = (f.uses || 0) + 1;
+      }
       save(); closeSheet(); render();
-      toast(e.slip && !wasSlip ? 'Logged. +2 for honesty 💛 Tomorrow-you says thanks.' : 'Logged ✔️');
+      toast((e.slip && !wasSlip ? 'Logged. +2 for honesty 💛' : 'Logged ✔️') + favMsg);
     };
     if (entry) $('#del', s).onclick = () => delEntry(entry.id);
+  });
+}
+
+function openFoodsManager() {
+  let list = state.foods.map((f) => ({ ...f }));
+  const nat = state.settings.trackNatural;
+  const rows = () => list.length ? list.map((f, i) => `
+    <div class="mf-row" data-i="${i}" style="grid-template-columns:1fr 58px ${nat ? '58px ' : ''}36px">
+      <input class="fn" value="${esc(f.name)}" aria-label="Food">
+      <input class="fa" type="number" inputmode="decimal" min="0" step="0.5" value="${f.added ?? ''}" placeholder="add" aria-label="Added sugar">
+      ${nat ? `<input class="fl" type="number" inputmode="decimal" min="0" step="0.5" value="${f.natural ?? ''}" placeholder="nat" aria-label="Natural sugar">` : ''}
+      <button class="fd" aria-label="Delete">🗑️</button>
+    </div>`).join('') : '<div class="empty">No saved foods yet.</div>';
+  openSheet(`
+    <h2>My Foods ⭐</h2>
+    <p class="hint" style="margin-top:0">Name · added g${nat ? ' · natural g' : ''}. Changes here don’t touch past logs.</p>
+    <div id="mfRows">${rows()}</div>
+    <div class="actions"><button class="btn ghost" id="mfBack">Cancel</button><button class="btn primary" id="mfSave">Save</button></div>`, (s) => {
+    const sync = () => $$('.mf-row', s).forEach((r) => {
+      const f = list[r.dataset.i]; f.name = $('.fn', r).value.trim();
+      const a = $('.fa', r).value; f.added = a === '' ? null : Math.max(0, Number(a));
+      const l = $('.fl', r); if (l) f.natural = l.value === '' ? null : Math.max(0, Number(l.value));
+    });
+    const wire = () => $$('.fd', s).forEach((b) => b.onclick = () => { sync(); list.splice(Number(b.closest('.mf-row').dataset.i), 1); $('#mfRows', s).innerHTML = rows(); wire(); });
+    wire();
+    $('#mfBack', s).onclick = () => openFoodSheet();
+    $('#mfSave', s).onclick = () => { sync(); state.foods = list.filter((f) => f.name); save(); toast('My Foods saved ⭐'); openFoodSheet(); };
   });
 }
 
@@ -1021,6 +1118,7 @@ function openSettings() {
     <p class="hint">Stored only on this device. Heads up: Google may use free-tier requests (including food photos) to improve its products.</p>
     <label for="sModel">Gemini model</label>
     <input id="sModel" value="${esc(st.model)}">
+    <label class="check"><input type="checkbox" id="sWeb" ${st.webSearch ? 'checked' : ''}><span>🔎 Let Gemini look things up on the web<small>Finds real nutrition facts for brands & restaurants. A little slower; Google may limit or charge for web lookups separately.</small></span></label>
     <button class="btn ghost wide" id="test" style="margin-top:10px">🧪 Test my key</button>
     <div id="testOut" class="ai-out hidden"></div>
     <div class="grid2" style="grid-template-columns:1fr 1fr">
@@ -1044,6 +1142,7 @@ function openSettings() {
       st.goal = Math.max(1, Number($('#sGoal', s).value) || 35);
       st.periodGoal = Math.max(1, Number($('#sPGoal', s).value) || 40);
       st.trackNatural = $('#sNat', s).checked;
+      st.webSearch = $('#sWeb', s).checked;
       const fv = $('#sFlag', s).value; st.totalFlag = fv === '' ? 90 : Math.max(0, Number(fv) || 0);
     };
     $('#save', s).onclick = () => { apply(); save(); closeSheet(); render(); toast('Settings saved ✔️'); };
