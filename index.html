@@ -314,7 +314,7 @@ const DEFAULT_STATE = () => ({
   version: 1,
   entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(), quickWins: DEFAULT_QUICK_WINS(), foods: [],
   periodDays: {},
-  settings: { apiKey: '', model: 'gemini-3.7-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true, webSearch: true }
+  settings: { apiKey: '', model: 'gemini-3.7-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true, webSearch: true, useBackups: true, modelList: [] }
 });
 let state = DEFAULT_STATE();
 const ui = { tab: 'today', day: todayKey(), followToday: true, jFilter: 'journal', kit: 'why' };
@@ -656,7 +656,7 @@ async function gemini(parts, opts = {}) {
   const key = state.settings.apiKey.trim();
   if (!key) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
   const chosen = state.settings.model.trim();
-  const models = [chosen, ...FALLBACK_MODELS.filter((m) => m !== chosen)];
+  const models = state.settings.useBackups ? [chosen, ...FALLBACK_MODELS.filter((m) => m !== chosen)] : [chosen];
   let lastErr, busy = false;
   for (const model of models) {
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -1108,6 +1108,23 @@ function openGoalSheet(g) {
 }
 
 /* ---------- SETTINGS ---------- */
+async function fetchModels(key) {
+  const out = []; let page = '';
+  for (let i = 0; i < 10; i++) {
+    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?pageSize=1000${page ? '&pageToken=' + encodeURIComponent(page) : ''}`, { headers: { 'x-goog-api-key': key } });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) throw new Error(data.error?.message || `Couldn’t load models (${res.status})`);
+    out.push(...(data.models || []));
+    if (!data.nextPageToken) break; page = data.nextPageToken;
+  }
+  const skip = /embedding|imagen|veo|tts|aqa|image-generation|native-audio|live|lyria|robotics|computer-use/i;
+  const ver = (id) => (id.match(/(\d+(?:\.\d+)?)/) || [0, 0])[1] * 1;
+  return out
+    .filter((m) => (m.supportedGenerationMethods || []).includes('generateContent'))
+    .map((m) => ({ id: m.name.replace(/^models\//, ''), label: m.displayName || m.name.replace(/^models\//, '') }))
+    .filter((m) => m.id.startsWith('gemini') && !skip.test(m.id))
+    .sort((a, b) => ver(b.id) - ver(a.id) || (/flash/.test(b.id) - /flash/.test(a.id)) || a.id.localeCompare(b.id));
+}
 function openSettings() {
   const st = state.settings;
   openSheet(`
@@ -1117,7 +1134,11 @@ function openSettings() {
       <button class="btn ghost" id="showKey" style="padding:0 14px">👁️</button></div>
     <p class="hint">Stored only on this device. Heads up: Google may use free-tier requests (including food photos) to improve its products.</p>
     <label for="sModel">Gemini model</label>
-    <input id="sModel" value="${esc(st.model)}">
+    <div style="display:flex;gap:8px"><select id="sModel" style="flex:1;min-width:0"></select>
+      <button class="btn ghost" id="loadModels" style="padding:0 14px" aria-label="Refresh model list">🔄</button></div>
+    <p class="hint" id="modelHint"></p>
+    <input id="sModelCustom" class="hidden" placeholder="Type a model name, e.g. gemini-3.7-flash" style="margin-top:8px" autocomplete="off" autocapitalize="off">
+    <label class="check"><input type="checkbox" id="sBackup" ${st.useBackups ? 'checked' : ''}><span>🛟 Use backup models when this one is busy<small>Turn off to only ever use the model you picked.</small></span></label>
     <label class="check"><input type="checkbox" id="sWeb" ${st.webSearch ? 'checked' : ''}><span>🔎 Let Gemini look things up on the web<small>Finds real nutrition facts for brands & restaurants. A little slower; Google may limit or charge for web lookups separately.</small></span></label>
     <button class="btn ghost wide" id="test" style="margin-top:10px">🧪 Test my key</button>
     <div id="testOut" class="ai-out hidden"></div>
@@ -1136,9 +1157,32 @@ function openSettings() {
     <input type="file" id="impIn" accept="application/json,.json" hidden>
     <button class="link danger" id="reset" style="margin-top:16px;color:var(--berry)">Erase everything</button>`, (s) => {
     $('#showKey', s).onclick = () => { const k = $('#sKey', s); k.type = k.type === 'password' ? 'text' : 'password'; };
+    const selM = $('#sModel', s), hint = $('#modelHint', s), custom = $('#sModelCustom', s);
+    const fill = () => {
+      const list = st.modelList?.length ? st.modelList : FALLBACK_MODELS.map((id) => ({ id, label: id }));
+      const has = list.some((m) => m.id === st.model);
+      selM.innerHTML = (has ? '' : `<option value="${esc(st.model)}">${esc(st.model)}</option>`)
+        + list.map((m) => `<option value="${esc(m.id)}">${esc(m.label)}${m.label !== m.id ? ` — ${esc(m.id)}` : ''}</option>`).join('')
+        + '<option value="__custom">✏️ Type a model name…</option>';
+      selM.value = st.model;
+      hint.textContent = st.modelList?.length ? `${st.modelList.length} models available on your key. Tap 🔄 to refresh.` : 'Tap 🔄 to load every model your key can use.';
+    };
+    selM.onchange = () => { custom.classList.toggle('hidden', selM.value !== '__custom'); if (selM.value === '__custom') custom.focus(); };
+    const load = async (quiet) => {
+      const key = $('#sKey', s).value.trim();
+      if (!key) { if (!quiet) hint.textContent = 'Paste your API key first, then tap 🔄.'; return; }
+      hint.textContent = 'Loading models…';
+      try { st.modelList = await fetchModels(key); save(); fill(); }
+      catch (err) { hint.textContent = '😵 ' + err.message; }
+    };
+    $('#loadModels', s).onclick = () => load(false);
+    fill();
+    if (st.apiKey && !st.modelList?.length) load(true);
     const apply = () => {
       st.apiKey = $('#sKey', s).value.trim();
-      st.model = $('#sModel', s).value.trim() || 'gemini-3.7-flash';
+      const sel = $('#sModel', s).value;
+      st.model = (sel === '__custom' ? $('#sModelCustom', s).value.trim() : sel) || st.model || 'gemini-3.7-flash';
+      st.useBackups = $('#sBackup', s).checked;
       st.goal = Math.max(1, Number($('#sGoal', s).value) || 35);
       st.periodGoal = Math.max(1, Number($('#sPGoal', s).value) || 40);
       st.trackNatural = $('#sNat', s).checked;
@@ -1149,7 +1193,7 @@ function openSettings() {
     $('#test', s).onclick = async () => {
       apply(); save();
       const out = $('#testOut', s); out.classList.remove('hidden', 'err'); out.textContent = 'Testing…';
-      try { const r = await estimateSugar('one 12 oz can of regular Coca-Cola', null); out.textContent = `✅ Your key works! (answered by ${lastModelUsed}${lastModelUsed !== st.model ? ' — your first pick was busy, so it used a backup' : ''}) A can of Coke ≈ ${r.added_sugar_g}g added sugar.`; }
+      try { const r = await estimateSugar('one 12 oz can of regular Coca-Cola', null); out.textContent = `✅ Your key works! (answered by ${lastModelUsed}${lastModelUsed !== st.model ? ` — ${esc(st.model)} was busy or unavailable, so it used a backup` : ''}) A can of Coke ≈ ${r.added_sugar_g}g added sugar.`; }
       catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
     };
     $('#exp', s).onclick = () => {
