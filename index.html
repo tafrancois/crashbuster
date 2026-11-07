@@ -305,7 +305,7 @@ const DEFAULT_STATE = () => ({
   version: 1,
   entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(), quickWins: DEFAULT_QUICK_WINS(),
   periodDays: {},
-  settings: { apiKey: '', model: 'gemini-3.5-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true }
+  settings: { apiKey: '', model: 'gemini-3.7-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true }
 });
 let state = DEFAULT_STATE();
 const ui = { tab: 'today', day: todayKey(), followToday: true, jFilter: 'journal', kit: 'why' };
@@ -616,27 +616,39 @@ function resizeImg(img, max, q) {
 }
 
 /* ---------- Gemini ---------- */
-const FALLBACK_MODELS = ['gemini-3.5-flash', 'gemini-3-flash', 'gemini-2.5-flash'];
+const FALLBACK_MODELS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+let lastModelUsed = '';
 async function gemini(parts) {
   const key = state.settings.apiKey.trim();
   if (!key) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
-  const models = [state.settings.model.trim(), ...FALLBACK_MODELS.filter((m) => m !== state.settings.model.trim())];
-  let lastErr;
+  const chosen = state.settings.model.trim();
+  const models = [chosen, ...FALLBACK_MODELS.filter((m) => m !== chosen)];
+  let lastErr, busy = false;
   for (const model of models) {
-    const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-      body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } })
-    });
-    const data = await res.json().catch(() => ({}));
-    if (res.ok) {
-      if (model !== state.settings.model) { state.settings.model = model; save(); }
-      const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
-      return JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim());
+    for (let attempt = 0; attempt < 2; attempt++) {
+      let res, data;
+      try {
+        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+          body: JSON.stringify({ contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } })
+        });
+        data = await res.json().catch(() => ({}));
+      } catch (e) { throw new Error('Couldn’t reach Gemini — are you online?'); }
+      if (res.ok) {
+        lastModelUsed = model;
+        const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+        return JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim());
+      }
+      lastErr = new Error(data.error?.message || `Gemini error ${res.status}`);
+      if (res.status === 404) { if (model === chosen) { /* model retired */ } break; }      // try next model
+      if (res.status === 429 || res.status >= 500) { busy = true; if (attempt === 0) { await sleep(1200); continue; } break; } // busy: retry once, then next model
+      if (res.status === 400 && /api key/i.test(lastErr.message)) throw new Error('Google says that API key isn’t valid. Double-check you copied the whole thing.');
+      throw lastErr; // anything else (bad key, etc.) — stop
     }
-    lastErr = new Error(data.error?.message || `Gemini error ${res.status}`);
-    if (res.status !== 404) break; // only try other models if this one doesn't exist
   }
+  if (busy) throw new Error('All the Gemini models are busy right now 😩 This is on Google’s side — try again in a few minutes, or type the grams yourself for now.');
   throw lastErr;
 }
 async function estimateSugar(text, imgDataUrl) {
@@ -1005,7 +1017,7 @@ function openSettings() {
     $('#showKey', s).onclick = () => { const k = $('#sKey', s); k.type = k.type === 'password' ? 'text' : 'password'; };
     const apply = () => {
       st.apiKey = $('#sKey', s).value.trim();
-      st.model = $('#sModel', s).value.trim() || 'gemini-3.5-flash';
+      st.model = $('#sModel', s).value.trim() || 'gemini-3.7-flash';
       st.goal = Math.max(1, Number($('#sGoal', s).value) || 35);
       st.periodGoal = Math.max(1, Number($('#sPGoal', s).value) || 40);
       st.trackNatural = $('#sNat', s).checked;
@@ -1015,7 +1027,7 @@ function openSettings() {
     $('#test', s).onclick = async () => {
       apply(); save();
       const out = $('#testOut', s); out.classList.remove('hidden', 'err'); out.textContent = 'Testing…';
-      try { const r = await estimateSugar('one 12 oz can of regular Coca-Cola', null); out.textContent = `✅ It works! (${st.model}) A can of Coke ≈ ${r.added_sugar_g}g added sugar.`; $('#sModel', s).value = st.model; }
+      try { const r = await estimateSugar('one 12 oz can of regular Coca-Cola', null); out.textContent = `✅ Your key works! (answered by ${lastModelUsed}${lastModelUsed !== st.model ? ' — your first pick was busy, so it used a backup' : ''}) A can of Coke ≈ ${r.added_sugar_g}g added sugar.`; }
       catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
     };
     $('#exp', s).onclick = () => {
@@ -1088,7 +1100,10 @@ document.addEventListener('visibilitychange', () => {
 (async function boot() {
   try {
     const saved = await idbGet('state');
-    if (saved) { state = Object.assign(DEFAULT_STATE(), saved); state.settings = Object.assign(DEFAULT_STATE().settings, saved.settings || {}); }
+    if (saved) {
+      state = Object.assign(DEFAULT_STATE(), saved); state.settings = Object.assign(DEFAULT_STATE().settings, saved.settings || {});
+      if (state.settings.model === 'gemini-3.5-flash') { state.settings.model = 'gemini-3.7-flash'; save(); } // upgrade old default
+    }
     else { seed(); await save(); }
   } catch (e) { seed(); toast('⚠️ Storage unavailable — data won’t persist'); }
   render();
