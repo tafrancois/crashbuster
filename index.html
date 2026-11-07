@@ -639,9 +639,9 @@ async function gemini(parts) {
       if (res.ok) {
         lastModelUsed = model;
         const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
-        return JSON.parse(txt.replace(/^```(json)?|```$/g, '').trim());
+        return parseGeminiJSON(txt, model, data);
       }
-      lastErr = new Error(data.error?.message || `Gemini error ${res.status}`);
+      lastErr = new Error(`${data.error?.message || 'Gemini error'} [${model} · ${res.status}]`);
       if (res.status === 404) { if (model === chosen) { /* model retired */ } break; }      // try next model
       if (res.status === 429 || res.status >= 500) { busy = true; if (attempt === 0) { await sleep(1200); continue; } break; } // busy: retry once, then next model
       if (res.status === 400 && /api key/i.test(lastErr.message)) throw new Error('Google says that API key isn’t valid. Double-check you copied the whole thing.');
@@ -651,16 +651,39 @@ async function gemini(parts) {
   if (busy) throw new Error('All the Gemini models are busy right now 😩 This is on Google’s side — try again in a few minutes, or type the grams yourself for now.');
   throw lastErr;
 }
+function parseGeminiJSON(txt, model, data) {
+  if (!txt) {
+    const why = data.promptFeedback?.blockReason || data.candidates?.[0]?.finishReason || 'empty reply';
+    throw new Error(`Gemini didn’t send an answer (${why}). Try again or add a short description. [${model}]`);
+  }
+  let t = txt.replace(/```(json)?/g, '').trim();
+  try { const v = JSON.parse(t); return Array.isArray(v) ? mergeItems(v) : v; } catch (e) { /* fall through */ }
+  const tryParse = (open, close) => {
+    const a = t.indexOf(open), b = t.lastIndexOf(close);
+    if (a === -1 || b <= a) return null;
+    try { const v = JSON.parse(t.slice(a, b + 1)); return Array.isArray(v) ? mergeItems(v) : v; } catch (e) { return null; }
+  };
+  const ai = t.indexOf('['), oi = t.indexOf('{');
+  const got = (ai !== -1 && ai < oi) ? (tryParse('[', ']') || tryParse('{', '}')) : (tryParse('{', '}') || tryParse('[', ']'));
+  if (got) return got;
+  throw new Error(`Gemini answered but I couldn’t read it: “${t.slice(0, 80)}…” [${model}]`);
+}
+function mergeItems(arr) {
+  // if Gemini lists several foods separately, add them up
+  const sum = (k) => arr.reduce((s, x) => s + (Number(x?.[k]) || 0), 0);
+  return { food: arr.map((x) => x?.food).filter(Boolean).join(' + '), added_sugar_g: sum('added_sugar_g'), natural_sugar_g: sum('natural_sugar_g'),
+    total_sugar_g: sum('total_sugar_g'), confidence: arr[0]?.confidence, assumptions: arr.map((x) => x?.assumptions).filter(Boolean).join(' ') };
+}
 async function estimateSugar(text, imgDataUrl) {
   const prompt = `You help someone track their sugar, split into ADDED sugar (sugar, syrups, honey, juice concentrate etc. added during preparation) and NATURAL sugar (naturally present in whole fruit, plain milk, plain vegetables, etc.).
 Estimate the grams of ADDED sugar and NATURAL sugar in the food or drink ${imgDataUrl ? 'shown in the photo and/or ' : ''}described below.
 Use any quantities given. If no quantity is given, assume what's visible in the photo or one typical serving, and say what you assumed.
 For restaurant or bakery items, estimate from typical recipes. Round to the nearest gram.
-Reply ONLY with JSON: {"food":"short name","added_sugar_g":number,"natural_sugar_g":number,"total_sugar_g":number,"confidence":"low"|"medium"|"high","assumptions":"one short friendly sentence"}
+If there are several items, add them together into ONE object. Reply ONLY with a single JSON object: {"food":"short name","added_sugar_g":number,"natural_sugar_g":number,"total_sugar_g":number,"confidence":"low"|"medium"|"high","assumptions":"one short friendly sentence"}
 
 Description: ${text || '(none — use the photo)'}`;
   const parts = [{ text: prompt }];
-  if (imgDataUrl) parts.push({ inline_data: { mime_type: 'image/jpeg', data: imgDataUrl.split(',')[1] } });
+  if (imgDataUrl) parts.push({ inlineData: { mimeType: 'image/jpeg', data: imgDataUrl.split(',')[1] } });
   return gemini(parts);
 }
 
