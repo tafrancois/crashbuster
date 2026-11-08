@@ -488,7 +488,7 @@ function renderToday() {
   if (grams === 0) status = isToday ? 'Clean slate ✨' : 'No sugar logged';
   else if (grams < goal) status = `${round(goal - grams)}g left in ${isToday ? "today's" : 'the'} budget`;
   else if (grams === goal) status = 'Right at your goal — perfect landing 🎯';
-  else status = `${round(grams - goal)}g over — that’s data, not a verdict 💛`;
+  else status = `${round(grams - goal)}g over — 💅🏾 girl, it’s okay`;
   const natural = round(sumNatural(k));
   const period = !!state.periodDays[k];
   const due = isToday ? state.goals.filter((g) => !g.done && g.checkIn && g.checkIn <= tk) : [];
