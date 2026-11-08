@@ -191,6 +191,11 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .photo-box img{width:100%;max-height:260px;object-fit:cover;display:block}
 .ai{width:100%;margin-top:10px;padding:13px;border-radius:14px;font-weight:800;background:linear-gradient(90deg,var(--plum),var(--berry));color:#fff}
 .ai:disabled{opacity:.6}
+.ai-row{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+.ai-row .ai{margin-top:0;font-size:14px;padding:13px 8px}
+.ai-web{background:var(--card);color:var(--plum);border:2px solid var(--plum)}
+.ai-out .srcs{margin-top:8px;font-size:12.5px;line-height:1.5}
+.ai-out .srcs a{color:var(--plum);font-weight:700;word-break:break-word}
 .ai-out{margin-top:10px;background:var(--plum-soft);color:var(--ink);border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.4}
 .ai-out.err{background:var(--berry-soft)}
 .check{display:flex;gap:10px;align-items:flex-start;color:var(--ink);font-size:15px;font-weight:600;margin-top:16px}
@@ -650,15 +655,16 @@ function resizeImg(img, max, q) {
 /* ---------- Gemini ---------- */
 const FALLBACK_MODELS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
-let lastModelUsed = '', lastSearched = false;
+let lastModelUsed = '', lastSearched = false, lastSources = [];
 async function gemini(parts, opts = {}) {
   let useSearch = !!opts.search;
   const key = state.settings.apiKey.trim();
   if (!key) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
   const chosen = state.settings.model.trim();
-  const models = state.settings.useBackups ? [chosen, ...FALLBACK_MODELS.filter((m) => m !== chosen)] : [chosen];
+  const models = (state.settings.useBackups || opts.force) ? [chosen, ...FALLBACK_MODELS.filter((m) => m !== chosen)] : [chosen];
   let lastErr, busy = false;
   for (const model of models) {
+    useSearch = !!opts.search;
     for (let attempt = 0; attempt < 2; attempt++) {
       let res, data;
       try {
@@ -673,18 +679,26 @@ async function gemini(parts, opts = {}) {
       } catch (e) { throw new Error('Couldn’t reach Gemini — are you online?'); }
       if (res.ok) {
         lastModelUsed = model;
-        lastSearched = !!data.candidates?.[0]?.groundingMetadata?.webSearchQueries?.length;
+        const gm = data.candidates?.[0]?.groundingMetadata || {};
+        lastSearched = !!(gm.webSearchQueries?.length || gm.groundingChunks?.length);
+        lastSources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w && w.uri)
+          .filter((w, i, a) => a.findIndex((x) => (x.title || x.uri) === (w.title || w.uri)) === i).slice(0, 4);
+        if (opts.force && !lastSearched) { lastErr = new Error(`${model} answered without searching`); break; } // forced lookup must actually search
         const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
         return parseGeminiJSON(txt, model, data);
       }
       lastErr = new Error(`${data.error?.message || 'Gemini error'} [${model} · ${res.status}]`);
-      if (useSearch && res.status === 400 && /tool|search|grounding/i.test(lastErr.message)) { useSearch = false; attempt--; continue; } // this model can't search: retry without
+      if (useSearch && res.status === 400 && /tool|search|grounding/i.test(lastErr.message)) {
+        if (opts.force) break;                      // forced lookup: try a model that CAN search
+        useSearch = false; attempt--; continue;     // normal estimate: retry without searching
+      }
       if (res.status === 404) break;      // model doesn't exist: try next model
       if (res.status === 429 || res.status >= 500) { busy = true; if (attempt === 0) { await sleep(1200); continue; } break; } // busy: retry once, then next model
       if (res.status === 400 && /api key/i.test(lastErr.message)) throw new Error('Google says that API key isn’t valid. Double-check you copied the whole thing.');
       throw lastErr; // anything else (bad key, etc.) — stop
     }
   }
+  if (opts.force) throw new Error('Couldn’t get a web lookup to go through 😩 ' + (busy ? 'Gemini is busy — try again in a minute.' : `(${lastErr?.message || 'no search results'})`));
   if (busy) throw new Error('All the Gemini models are busy right now 😩 This is on Google’s side — try again in a few minutes, or type the grams yourself for now.');
   throw lastErr;
 }
@@ -711,7 +725,7 @@ function mergeItems(arr) {
   return { food: arr.map((x) => x?.food).filter(Boolean).join(' + '), added_sugar_g: sum('added_sugar_g'), natural_sugar_g: sum('natural_sugar_g'),
     total_sugar_g: sum('total_sugar_g'), confidence: arr[0]?.confidence, assumptions: arr.map((x) => x?.assumptions).filter(Boolean).join(' ') };
 }
-async function estimateSugar(text, imgDataUrl) {
+async function estimateSugar(text, imgDataUrl, force = false) {
   const prompt = `You help someone track their sugar, split into ADDED sugar (sugar, syrups, honey, juice concentrate etc. added during preparation) and NATURAL sugar (naturally present in whole fruit, plain milk, plain vegetables, etc.).
 Estimate the grams of ADDED sugar and NATURAL sugar in the food or drink ${imgDataUrl ? 'shown in the photo and/or ' : ''}described below.
 Use any quantities given. If no quantity is given, assume what's visible in the photo or one typical serving, and say what you assumed.
@@ -719,9 +733,13 @@ For a branded or packaged product or a chain restaurant item, look up its offici
 If there are several items, add them together into ONE object. Reply ONLY with a single JSON object: {"food":"short name","added_sugar_g":number,"natural_sugar_g":number,"total_sugar_g":number,"confidence":"low"|"medium"|"high","assumptions":"one short friendly sentence"}
 
 Description: ${text || '(none — use the photo)'}`;
-  const parts = [{ text: prompt }];
-  if (imgDataUrl) parts.push({ inlineData: { mimeType: 'image/jpeg', data: imgDataUrl.split(',')[1] } });
-  return gemini(parts, { search: state.settings.webSearch });
+  const forced = `${prompt}
+
+IMPORTANT — WEB LOOKUP MODE: You MUST use Google Search before answering. Search for this exact item from this exact restaurant, bakery or brand (e.g. their website, menu nutrition page, or a reputable nutrition database). Use the sugar grams you find per item, then scale to the amount eaten (e.g. "half" = divide by 2). Do NOT guess from the photo when you can find real numbers. If the source only lists total sugar, treat all sugar in a dessert or sweetened drink as added. In "assumptions", say where the number came from and the per-item figure you found.`;
+  const parts = [{ text: force ? forced : prompt }];
+  // in lookup mode, only send the photo if there's no description (the words are what get searched)
+  if (imgDataUrl && !(force && text)) parts.push({ inlineData: { mimeType: 'image/jpeg', data: imgDataUrl.split(',')[1] } });
+  return gemini(parts, force ? { search: true, force: true } : { search: state.settings.webSearch });
 }
 
 /* ---------- FOOD sheet ---------- */
@@ -740,7 +758,7 @@ function openFoodSheet(entry, prefill = {}) {
     <button class="link ${photoThumb ? '' : 'hidden'}" id="rmPhoto">Remove photo</button>
     <label for="fText">What did you eat or drink?</label>
     <textarea id="fText" rows="3" placeholder="2 chocolate-filled donuts + a burger">${esc(e.text)}</textarea>
-    <button class="ai" id="aiBtn">✨ Estimate sugar with Gemini</button>
+    <div class="ai-row"><button class="ai" id="aiBtn">✨ Estimate sugar</button><button class="ai ai-web" id="webBtn">🔎 Look it up online</button></div>
     <div id="aiOut" class="ai-out ${e.aiNote ? '' : 'hidden'}">${esc(e.aiNote)}</div>
     <div class="grid2" style="grid-template-columns:${state.settings.trackNatural ? '1fr 1fr' : '1fr'}">
       <div><label for="fGrams">🍩 Added sugar (g)</label><input id="fGrams" type="number" inputmode="decimal" min="0" step="0.5" placeholder="?" value="${e.grams ?? ''}"></div>
@@ -786,22 +804,31 @@ function openFoodSheet(entry, prefill = {}) {
       } catch (err) { toast(err.message); }
     };
     $('#rmPhoto', s).onclick = () => { photoFull = photoThumb = null; box.innerHTML = '<span>📸 Add a photo</span>'; $('#rmPhoto', s).classList.add('hidden'); input.value = ''; };
-    $('#aiBtn', s).onclick = async () => {
+    const runAI = async (force) => {
       const text = $('#fText', s).value.trim(), img = photoFull || photoThumb;
       out.classList.remove('hidden', 'err');
       if (!text && !img) { out.classList.add('err'); out.textContent = 'Add a photo or describe what you had first 🙂'; return; }
+      if (force && !text) { out.classList.add('err'); out.textContent = 'Type what it is and where it’s from first, like “half an ube cookie from Denica’s” 🔎'; return; }
       if (!state.settings.apiKey) { out.classList.add('err'); out.innerHTML = 'Add your Gemini API key in <b>⚙️ Settings</b> first. You can still type a number yourself!'; return; }
-      const btn = $('#aiBtn', s); btn.disabled = true; btn.textContent = '✨ Thinking…'; out.textContent = 'Counting sprinkles…';
+      const btns = [$('#aiBtn', s), $('#webBtn', s)]; btns.forEach((b) => b.disabled = true);
+      out.textContent = force ? 'Searching the web… 🔎' : 'Counting sprinkles…';
       try {
-        const r = await estimateSugar(text, img);
+        const r = await estimateSugar(text, img, force);
         const g = Math.max(0, Number(r.added_sugar_g) || 0);
         const nat = Math.max(0, Number(r.natural_sugar_g ?? (Number(r.total_sugar_g) - g)) || 0);
         $('#fGrams', s).value = g; if ($('#fNat', s)) $('#fNat', s).value = nat;
         out.textContent = `${lastSearched ? '🔎 ' : ''}${r.food || 'Estimate'}: ~${g}g added${$('#fNat', s) ? ` + ~${nat}g natural` : ''} sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
+        if (lastSearched && lastSources.length) {
+          const d = document.createElement('div'); d.className = 'srcs';
+          d.innerHTML = 'Sources: ' + lastSources.map((w) => `<a href="${esc(w.uri)}" target="_blank" rel="noopener">${esc(w.title || 'link')}</a>`).join(' · ');
+          out.appendChild(d);
+        }
         if (!text && r.food) $('#fText', s).value = r.food;
       } catch (err) { out.classList.add('err'); out.textContent = '😵 ' + err.message; }
-      btn.disabled = false; btn.textContent = '✨ Estimate sugar with Gemini';
+      btns.forEach((b) => b.disabled = false);
     };
+    $('#aiBtn', s).onclick = () => runAI(false);
+    $('#webBtn', s).onclick = () => runAI(true);
     $('#save', s).onclick = () => {
       const text = $('#fText', s).value.trim();
       if (!text && !photoThumb) { toast('Add a photo or a description 🙂'); return; }
@@ -811,7 +838,7 @@ function openFoodSheet(entry, prefill = {}) {
         text, photo: photoThumb, grams: gv === '' ? null : Math.max(0, Number(gv)),
         natural: !$('#fNat', s) ? (e.natural ?? null) : $('#fNat', s).value === '' ? null : Math.max(0, Number($('#fNat', s).value)),
         ts: fromLocalInput($('#fTime', s).value), slip: $('#fSlip', s).checked,
-        aiNote: out.classList.contains('hidden') || out.classList.contains('err') ? (e.aiNote || '') : out.textContent
+        aiNote: out.classList.contains('hidden') || out.classList.contains('err') ? (e.aiNote || '') : (out.firstChild?.nodeType === 3 ? out.firstChild.textContent : out.textContent)
       });
       if (!entry) { e.id = uid(); state.entries.push(e); }
       let favMsg = '';
