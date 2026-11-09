@@ -858,7 +858,13 @@ function resizeImg(img, max, q) {
 }
 
 /* ---------- Gemini ---------- */
-const FALLBACK_MODELS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3.1-flash-lite', 'gemini-3-flash', 'gemini-2.5-flash', 'gemini-2.5-flash-lite'];
+const FALLBACK_MODELS = ['gemini-3.7-flash', 'gemini-3.5-flash', 'gemini-3-flash'];
+// backups: prefer models your key actually has (from Settings → 🔄), newest Flash models only — never old/lite ones
+function backupModels(chosen) {
+  const fromKey = (state.settings.modelList || []).map((m) => m.id).filter((id) => /flash/.test(id) && !/lite|preview|exp/i.test(id));
+  const pool = fromKey.length ? fromKey : FALLBACK_MODELS;
+  return pool.filter((m) => m !== chosen).slice(0, 2);
+}
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let lastModelUsed = '', lastSearched = false, lastSources = [];
 async function gemini(parts, opts = {}) {
@@ -866,8 +872,8 @@ async function gemini(parts, opts = {}) {
   const key = state.settings.apiKey.trim();
   if (!key) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
   const chosen = state.settings.model.trim();
-  const models = (state.settings.useBackups || opts.force) ? [chosen, ...FALLBACK_MODELS.filter((m) => m !== chosen)] : [chosen];
-  let lastErr, busy = false;
+  const models = state.settings.useBackups ? [chosen, ...backupModels(chosen)] : [chosen];
+  let lastErr, busy = false; const errs = [];
   for (const model of models) {
     useSearch = !!opts.search;
     for (let attempt = 0; attempt < 2; attempt++) {
@@ -888,11 +894,11 @@ async function gemini(parts, opts = {}) {
         lastSearched = !!(gm.webSearchQueries?.length || gm.groundingChunks?.length);
         lastSources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w && w.uri)
           .filter((w, i, a) => a.findIndex((x) => (x.title || x.uri) === (w.title || w.uri)) === i).slice(0, 4);
-        if (opts.force && !lastSearched) { lastErr = new Error(`${model} answered without searching`); break; } // forced lookup must actually search
         const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
         return parseGeminiJSON(txt, model, data);
       }
       lastErr = new Error(`${data.error?.message || 'Gemini error'} [${model} · ${res.status}]`);
+      if (!errs.some((x) => x.startsWith(model))) errs.push(`${model}: ${data.error?.message || res.status}`);
       if (useSearch && res.status === 400 && /tool|search|grounding/i.test(lastErr.message)) {
         if (opts.force) break;                      // forced lookup: try a model that CAN search
         useSearch = false; attempt--; continue;     // normal estimate: retry without searching
@@ -903,7 +909,7 @@ async function gemini(parts, opts = {}) {
       throw lastErr; // anything else (bad key, etc.) — stop
     }
   }
-  if (opts.force) throw new Error('Couldn’t get a web lookup to go through 😩 ' + (busy ? 'Gemini is busy — try again in a minute.' : `(${lastErr?.message || 'no search results'})`));
+  if (opts.force) throw new Error('Couldn’t get a web lookup to go through 😩 ' + (busy ? 'Gemini is busy — try again in a minute. ' : '') + (errs.length ? `Your model said: “${errs[0]}”` : ''));
   if (busy) throw new Error('All the Gemini models are busy right now 😩 This is on Google’s side — try again in a few minutes, or type the grams yourself for now.');
   throw lastErr;
 }
@@ -1035,7 +1041,7 @@ function openFoodSheet(entry, prefill = {}) {
         const g = Math.max(0, Number(r.added_sugar_g) || 0);
         const nat = Math.max(0, Number(r.natural_sugar_g ?? (Number(r.total_sugar_g) - g)) || 0);
         $('#fGrams', s).value = g; if ($('#fNat', s)) $('#fNat', s).value = nat;
-        out.textContent = `${lastSearched ? '🔎 ' : ''}${r.food || 'Estimate'}: ~${g}g added${$('#fNat', s) ? ` + ~${nat}g natural` : ''} sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
+        out.textContent = `${force && !lastSearched ? '⚠️ Gemini skipped the search this time, so this may be a guess — tap 🔎 again. ' : ''}${lastModelUsed !== state.settings.model ? `(via backup ${lastModelUsed}) ` : ''}${lastSearched ? '🔎 ' : ''}${r.food || 'Estimate'}: ~${g}g added${$('#fNat', s) ? ` + ~${nat}g natural` : ''} sugar · ${r.confidence || '?'} confidence. ${r.assumptions || ''}`.trim();
         if (lastSearched && lastSources.length) {
           const d = document.createElement('div'); d.className = 'srcs';
           d.innerHTML = 'Sources: ' + lastSources.map((w) => `<a href="${esc(w.uri)}" target="_blank" rel="noopener">${esc(w.title || 'link')}</a>`).join(' · ');
