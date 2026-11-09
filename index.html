@@ -922,51 +922,83 @@ function backupModels(chosen) {
 }
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let lastModelUsed = '', lastSearched = false, lastSources = [], lookupRetried = false;
-async function gemini(parts, opts = {}) {
-  let useSearch = !!opts.search;
+const HEDGE_MS = 6000;                 // if your model hasn't answered by now, race a backup model
+const TIMEOUT_MS = { plain: 15000, search: 25000 };
+const DEADLINE_MS = { plain: 18000, search: 32000 }; // hard cap for the whole thing, backups included
+
+// one request to one model. Handles "this model can't do X" by retrying without X.
+async function callModel(model, parts, opts, signal) {
   const key = state.settings.apiKey.trim();
-  if (!key) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
-  const chosen = state.settings.model.trim();
-  const models = state.settings.useBackups ? [chosen, ...backupModels(chosen)] : [chosen];
-  let lastErr, busy = false; const errs = [];
-  for (const model of models) {
-    useSearch = !!opts.search;
-    for (let attempt = 0; attempt < 2; attempt++) {
-      let res, data;
-      try {
-        res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
-          body: JSON.stringify(useSearch
-            ? { contents: [{ parts }], tools: [{ google_search: {} }], generationConfig: { temperature: 0.2 } }
-            : { contents: [{ parts }], generationConfig: { responseMimeType: 'application/json', temperature: 0.2 } })
-        });
-        data = await res.json().catch(() => ({}));
-      } catch (e) { throw new Error('Couldn’t reach Gemini — are you online?'); }
-      if (res.ok) {
-        lastModelUsed = model;
-        const gm = data.candidates?.[0]?.groundingMetadata || {};
-        lastSearched = !!(gm.webSearchQueries?.length || gm.groundingChunks?.length);
-        lastSources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w && w.uri)
-          .filter((w, i, a) => a.findIndex((x) => (x.title || x.uri) === (w.title || w.uri)) === i).slice(0, 4);
-        const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
-        return parseGeminiJSON(txt, model, data);
-      }
-      lastErr = new Error(`${data.error?.message || 'Gemini error'} [${model} · ${res.status}]`);
-      if (!errs.some((x) => x.startsWith(model))) errs.push(`${model}: ${data.error?.message || res.status}`);
-      if (useSearch && res.status === 400 && /tool|search|grounding/i.test(lastErr.message)) {
-        if (opts.force) break;                      // forced lookup: try a model that CAN search
-        useSearch = false; attempt--; continue;     // normal estimate: retry without searching
-      }
-      if (res.status === 404) break;      // model doesn't exist: try next model
-      if (res.status === 429 || res.status >= 500) { busy = true; if (attempt === 0) { await sleep(1200); continue; } break; } // busy: retry once, then next model
-      if (res.status === 400 && /api key/i.test(lastErr.message)) throw new Error('Google says that API key isn’t valid. Double-check you copied the whole thing.');
-      throw lastErr; // anything else (bad key, etc.) — stop
+  let useSearch = !!opts.search, useThinkLow = /^gemini-3/.test(model);
+  for (let i = 0; i < 3; i++) {
+    const gen = { temperature: 0.2 };
+    if (!useSearch) gen.responseMimeType = 'application/json';
+    if (useThinkLow) gen.thinkingConfig = { thinkingLevel: 'low' };   // sugar math doesn't need deep thinking = much faster
+    let res, data;
+    try {
+      res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`, {
+        method: 'POST', signal,
+        headers: { 'Content-Type': 'application/json', 'x-goog-api-key': key },
+        body: JSON.stringify({ contents: [{ parts }], ...(useSearch ? { tools: [{ google_search: {} }] } : {}), generationConfig: gen })
+      });
+      data = await res.json().catch(() => ({}));
+    } catch (e) {
+      const err = new Error(signal.aborted ? (signal.reason === 'timeout' ? 'took too long' : 'cancelled') : 'Couldn’t reach Gemini — are you online?');
+      err.timeout = signal.reason === 'timeout'; err.offline = !signal.aborted; throw err;
     }
+    if (res.ok) {
+      const gm = data.candidates?.[0]?.groundingMetadata || {};
+      const sources = (gm.groundingChunks || []).map((c) => c.web).filter((w) => w && w.uri)
+        .filter((w, j, arr) => arr.findIndex((x) => (x.title || x.uri) === (w.title || w.uri)) === j).slice(0, 4);
+      const txt = (data.candidates?.[0]?.content?.parts || []).filter((p) => !p.thought).map((p) => p.text || '').join('');
+      return { r: parseGeminiJSON(txt, model, data), model, searched: !!(gm.webSearchQueries?.length || gm.groundingChunks?.length), sources };
+    }
+    const msg = data.error?.message || `Gemini error ${res.status}`;
+    if (res.status === 400 && useThinkLow && /think/i.test(msg)) { useThinkLow = false; continue; }          // model doesn't take thinking settings
+    if (res.status === 400 && useSearch && /tool|search|grounding/i.test(msg) && !opts.force) { useSearch = false; continue; }
+    const err = new Error(msg); err.status = res.status; err.busy = res.status === 429 || res.status >= 500;
+    err.fatal = res.status === 400 && /api key/i.test(msg) || res.status === 401 || res.status === 403;
+    throw err;
   }
-  if (opts.force) throw new Error('Couldn’t get a web lookup to go through 😩 ' + (busy ? 'Gemini is busy — try again in a minute. ' : '') + (errs.length ? `Your model said: “${errs[0]}”` : ''));
-  if (busy) throw new Error('All the Gemini models are busy right now 😩 This is on Google’s side — try again in a few minutes, or type the grams yourself for now.');
-  throw lastErr;
+}
+
+// asks your model; if it's slow or busy, races a backup and takes whichever answers first
+async function gemini(parts, opts = {}) {
+  if (!state.settings.apiKey.trim()) throw new Error('Add your Gemini API key in ⚙️ Settings first.');
+  const chosen = state.settings.model.trim();
+  const queue = state.settings.useBackups ? backupModels(chosen) : [];
+  const ctrls = [], errs = []; let done = false, running = 0, launched = 0, hedge, deadline;
+  return new Promise((resolve, reject) => {
+    const stopAll = () => { done = true; clearTimeout(hedge); clearTimeout(deadline); ctrls.forEach((c) => c.abort('done')); };
+    const finish = () => {
+      if (done) return; stopAll();
+      const mine = errs.find((x) => x.model === chosen) || errs[0];
+      if (errs.length && errs.every((x) => x.busy || x.timeout)) {
+        reject(new Error(errs.some((x) => x.timeout) ? 'Gemini is being super slow right now 🐢 Try again in a minute, or type the grams yourself.' : 'All the Gemini models are busy right now 😩 Try again in a few minutes, or type the grams yourself.'));
+      } else reject(new Error(mine ? `${mine.msg} [${mine.model}]` : 'Gemini didn’t answer'));
+    };
+    const launch = () => {
+      if (done) return;
+      const model = launched === 0 ? chosen : queue.shift();
+      if (!model) { if (running === 0) finish(); return; }
+      launched++; running++;
+      const ctrl = new AbortController(); ctrls.push(ctrl);
+      const timer = setTimeout(() => ctrl.abort('timeout'), opts.search ? TIMEOUT_MS.search : TIMEOUT_MS.plain);
+      callModel(model, parts, opts, ctrl.signal).then((out) => {
+        clearTimeout(timer); if (done) return; stopAll();
+        lastModelUsed = out.model; lastSearched = out.searched; lastSources = out.sources; resolve(out.r);
+      }).catch((e) => {
+        clearTimeout(timer); running--; if (done) return;
+        errs.push({ model, msg: e.message, busy: !!e.busy, timeout: !!e.timeout });
+        if (e.fatal) { stopAll(); reject(new Error(/api key/i.test(e.message) ? 'Google says that API key isn’t valid. Double-check you copied the whole thing.' : e.message)); return; }
+        if (e.offline) { stopAll(); reject(e); return; }
+        if (queue.length) launch(); else if (running === 0) finish();
+      });
+    };
+    launch();
+    hedge = setTimeout(() => { if (!done && queue.length) launch(); }, HEDGE_MS);
+    deadline = setTimeout(() => { if (!done) { errs.push({ model: chosen, msg: 'took too long', timeout: true }); finish(); } }, opts.search ? DEADLINE_MS.search : DEADLINE_MS.plain);
+  });
 }
 function parseGeminiJSON(txt, model, data) {
   if (!txt) {
@@ -1009,7 +1041,7 @@ IMPORTANT — WEB LOOKUP MODE: You MUST use Google Search before answering. Sear
   const parts = [{ text: force ? forced : prompt }];
   // in lookup mode, only send the photo if there's no description (the words are what get searched)
   if (imgDataUrl && !(force && text)) parts.push({ inlineData: { mimeType: 'image/jpeg', data: imgDataUrl.split(',')[1] } });
-  if (!force) return gemini(parts, { search: state.settings.webSearch });
+  if (!force) return gemini(parts, {});
   let r = await gemini(parts, { search: true, force: true });
   if (!lastSearched) { // Gemini skipped the search — nudge once and try again
     lookupRetried = true;
@@ -1106,7 +1138,7 @@ function openFoodSheet(entry, prefill = {}) {
       const f = input.files[0]; if (!f) return;
       try {
         const img = await fileToImage(f);
-        photoFull = resizeImg(img, 1024, 0.82); photoThumb = resizeImg(img, 360, 0.7);
+        photoFull = resizeImg(img, 768, 0.8); photoThumb = resizeImg(img, 360, 0.7);
         box.innerHTML = `<img src="${photoThumb}" alt="">`; $('#rmPhoto', s).classList.remove('hidden');
       } catch (err) { toast(err.message); }
     };
@@ -1512,7 +1544,6 @@ function openSettings() {
     <p class="hint" id="modelHint"></p>
     <input id="sModelCustom" class="hidden" placeholder="Type a model name, e.g. gemini-3.7-flash" style="margin-top:8px" autocomplete="off" autocapitalize="off">
     <label class="check"><input type="checkbox" id="sBackup" ${st.useBackups ? 'checked' : ''}><span>🛟 Use backup models when this one is busy<small>Turn off to only ever use the model you picked.</small></span></label>
-    <label class="check"><input type="checkbox" id="sWeb" ${st.webSearch ? 'checked' : ''}><span>🔎 Let Gemini look things up on the web<small>Finds real nutrition facts for brands & restaurants. A little slower; Google may limit or charge for web lookups separately.</small></span></label>
     <button class="btn ghost wide" id="test" style="margin-top:10px">🧪 Test my key</button>
     <div id="testOut" class="ai-out hidden"></div>
     <div class="grid2" style="grid-template-columns:1fr 1fr">
@@ -1540,7 +1571,7 @@ function openSettings() {
         + list.map((m) => `<option value="${esc(m.id)}">${esc(m.label)}${m.label !== m.id ? ` — ${esc(m.id)}` : ''}</option>`).join('')
         + '<option value="__custom">✏️ Type a model name…</option>';
       selM.value = st.model;
-      hint.textContent = st.modelList?.length ? `${st.modelList.length} models available on your key. Tap 🔄 to refresh.` : 'Tap 🔄 to load every model your key can use.';
+      hint.textContent = st.modelList?.length ? `${st.modelList.length} models available on your key. Tap 🔄 to refresh.` : 'Tap 🔄 to load every model your key can use.' + ' ⚡ Flash models are fastest — Pro models can take a LOT longer.';
     };
     selM.onchange = () => { custom.classList.toggle('hidden', selM.value !== '__custom'); if (selM.value === '__custom') custom.focus(); };
     const load = async (quiet) => {
@@ -1561,7 +1592,6 @@ function openSettings() {
       st.goal = Math.max(1, Number($('#sGoal', s).value) || 35);
       st.periodGoal = Math.max(1, Number($('#sPGoal', s).value) || 40);
       st.trackNatural = $('#sNat', s).checked;
-      st.webSearch = $('#sWeb', s).checked;
       const fv = $('#sFlag', s).value; st.totalFlag = fv === '' ? 90 : Math.max(0, Number(fv) || 0);
     };
     $('#save', s).onclick = () => { apply(); save(); closeSheet(); render(); toast('Settings saved ✔️'); };
