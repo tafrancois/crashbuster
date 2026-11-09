@@ -251,6 +251,25 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .mf-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .mf-item{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;text-align:left;font-weight:600;font-size:15px}
 .mf-item.on{border-color:var(--berry);background:var(--berry-soft)}
+.mf-sort button{padding:8px 4px;font-size:13px}
+#mfAdd{position:sticky;bottom:8px;z-index:2;box-shadow:0 6px 18px rgba(232,84,107,.35)}
+.mf-name{display:flex;align-items:center;gap:8px;min-width:0}
+.mf-pic{width:36px;height:36px;border-radius:9px;object-fit:cover;flex:0 0 36px}
+.fpic-wrap{position:relative}
+.fpic{width:46px;height:46px;border-radius:10px;background:var(--bg);border:1.5px dashed var(--line);display:grid;place-items:center;font-size:18px;overflow:hidden;padding:0}
+.fpic img{width:100%;height:100%;object-fit:cover}
+.fpic-x{position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--bg);font-size:11px;font-weight:800;display:grid;place-items:center}
+.meal-chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:12px}
+.meal-chips button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 2px;border-radius:14px;background:var(--bg);border:1.5px solid var(--line);font-size:20px}
+.meal-chips button span{font-size:11.5px;font-weight:700;color:var(--muted)}
+.meal-chips button.on{background:var(--honey-soft);border-color:var(--honey)}
+.meal-chips button.on span{color:var(--honey)}
+.meal-quick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:10px}
+.meal-quick button{display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 2px;border-radius:14px;background:var(--card);box-shadow:var(--shadow);font-size:12px;font-weight:700;color:var(--muted)}
+.meal-quick button span{font-size:22px}
+.meal-quick button.now{color:var(--honey);outline:2px solid var(--honey-soft)}
+.meal-sum{display:flex;gap:12px;justify-content:center;flex-wrap:wrap;margin-top:8px;font-size:13px;font-weight:700}
+.meal-sum .zero{color:var(--muted);font-weight:500;opacity:.7}
 .mf-check{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;border:2px solid var(--line);margin-right:8px;font-size:13px;color:#fff;vertical-align:-3px}
 .mf-item.on .mf-check{background:var(--berry);border-color:var(--berry)}
 .mf-item .mf-g{font-weight:800;color:var(--honey);white-space:nowrap}
@@ -504,7 +523,7 @@ function entryCard(e, showDate = false) {
   if (e.type === 'food') {
     return `<button class="item food ${e.slip ? 'slip' : ''}" data-action="editEntry" data-id="${e.id}">
       <div class="badge">${e.slip ? '🎂' : '🍽️'}</div>
-      <div class="body"><div class="meta">${time}${e.slip ? ' · slip, logged honestly 💛' : ''}</div>
+      <div class="body"><div class="meta">${time} · ${mealOf(e.ts).em} ${mealOf(e.ts).name}${e.slip ? ' · slip, logged honestly 💛' : ''}</div>
         <div class="txt">${e.text ? esc(e.text) : '<i>Photo log</i>'}</div>
         ${e.aiNote ? `<div class="sub">✨ ${esc(e.aiNote)}</div>` : ''}</div>
       ${e.photo ? `<img class="thumb" src="${esc(e.photo)}" alt="">` : ''}
@@ -583,6 +602,7 @@ function renderToday() {
         <div class="center"><div class="num">${grams}<small>g</small></div><div class="of">of ${goal}g added sugar</div></div>
       </div>
       <div class="status">${status}</div>
+      ${grams > 0 ? `<div class="meal-sum">${MEALS.map((m) => { const g = round(entriesOn(k).filter((e) => e.type === 'food' && mealOf(e.ts).id === m.id).reduce((t, e) => t + (Number(e.grams) || 0), 0)); return `<span class="${g ? '' : 'zero'}">${m.em} ${g}g</span>`; }).join('')}</div>` : ''}
       ${state.settings.trackNatural ? `<div class="natural-line">🍓 <b>${natural}g</b> natural sugar · <b>${round(grams + natural)}g</b> total</div>` : ''}
       ${state.settings.trackNatural && state.settings.totalFlag && grams + natural > state.settings.totalFlag ? `<div class="flag">🚩 ${state.settings.totalFlag === 90 ? 'You’ve passed 90g total sugar. The UK’s NHS recommends keeping total sugar (added + natural) under 90g a day — this is your stopping point for today 💛' : `You’ve passed your ${state.settings.totalFlag}g total sugar limit — this is your stopping point for today 💛`}</div>` : ''}
       ${unknown ? `<div class="unknown">${unknown} food log${unknown > 1 ? 's' : ''} still need${unknown > 1 ? '' : 's'} a sugar number</div>` : ''}
@@ -594,6 +614,7 @@ function renderToday() {
       <button class="b-crave" data-action="newCraving"><span class="em">😭</span>Craving!</button>
       <button class="b-win" data-action="newWin"><span class="em">🏆</span>Win</button>
     </div>
+    <div class="meal-quick">${MEALS.map((m) => `<button data-action="newMeal" data-m="${m.id}" class="${isToday && mealOf(Date.now()).id === m.id ? 'now' : ''}"><span>${m.em}</span>${m.name}</button>`).join('')}</div>
     <h3>${isToday ? "Today's" : 'This day’s'} timeline</h3>
     <div class="list">${items.length ? items.map((e) => entryCard(e)).join('') : `<div class="empty">Nothing logged ${isToday ? 'yet today' : 'this day'}.<br>Every log is a little act of listening to your body 🫶</div>`}</div>
   `;
@@ -695,6 +716,22 @@ function renderWins() {
     <div class="list">${weekEv.length ? weekEv.map((e) => `<div class="item win"><div class="badge">${e.bonus ? '✨' : '🏆'}</div>
       <div class="body"><div class="meta">${fmtDateTime(e.ts)}</div><div class="txt">${esc(e.label)}</div></div><div class="pts">+${e.pts}</div></div>`).join('')
       : '<div class="empty">No points yet this week — your first one is one tap away 💪</div>'}</div>`;
+}
+
+/* ---------- MEALS ---------- */
+const MEALS = [
+  { id: 'breakfast', em: '🍳', name: 'Breakfast', at: [8, 30] },
+  { id: 'lunch', em: '🥪', name: 'Lunch', at: [12, 30] },
+  { id: 'dinner', em: '🍝', name: 'Dinner', at: [18, 30] },
+  { id: 'late', em: '🌙', name: 'Late night', at: [22, 0] }
+];
+// Breakfast 6–11am · Lunch 11am–4pm · Dinner 4–9pm · Late night 9pm–6am
+const mealOf = (ts) => { const h = new Date(ts).getHours(); return h >= 6 && h < 11 ? MEALS[0] : h >= 11 && h < 16 ? MEALS[1] : h >= 16 && h < 21 ? MEALS[2] : MEALS[3]; };
+// a time inside the meal window on that day — uses "now" if you're in that window today
+function mealTime(id, dayK = ui.day) {
+  const m = MEALS.find((x) => x.id === id), now = Date.now();
+  if (dayK === todayKey() && mealOf(now).id === id) return now;
+  const d = keyToDate(dayK); d.setHours(m.at[0], m.at[1], 0, 0); return d.getTime();
 }
 
 /* ---------- CALENDAR ---------- */
@@ -959,11 +996,15 @@ function openFoodSheet(entry, prefill = {}) {
   let photoThumb = e.photo, photoFull = null;
   openSheet(`
     <h2>${entry ? 'Edit food log' : 'Log food 🍽️'}</h2>
+    <div class="meal-chips" id="mealRow">${MEALS.map((m) => `<button data-m="${m.id}" class="${mealOf(e.ts).id === m.id ? 'on' : ''}">${m.em}<span>${m.name}</span></button>`).join('')}</div>
     ${entry ? '' : `<div class="mf">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><label style="margin-top:0">⭐ My Foods</label>${state.foods.length ? '<button class="link" id="mfManage">Manage</button>' : ''}</div>
       ${state.foods.length ? `<input id="mfSearch" type="search" placeholder="Search my foods…" autocomplete="off">
         <p class="hint" style="margin:6px 0 0">Tap to select one or more — each gets its own log.</p>
+        <div class="seg mf-sort hidden" id="mfSort" style="grid-template-columns:1fr 1fr;margin:10px 0 0">
+          <button data-v="recent">🕒 Recently used</button><button data-v="az">🔤 A–Z</button></div>
         <div class="mf-list" id="mfList"></div>
+        <button class="link hidden" id="mfMore" style="margin-top:6px"></button>
         <button class="btn primary wide hidden" id="mfAdd" style="margin-top:10px"></button>`
         : '<p class="hint" style="margin-top:0">Tick “⭐ Save to My Foods” below when you log something you have a lot — next time it’s one tap.</p>'}
     </div>`}
@@ -980,7 +1021,7 @@ function openFoodSheet(entry, prefill = {}) {
     </div>
     ${state.settings.trackNatural ? '<p class="hint">Added = sugar, syrups, honey, juice concentrate put in during making. Natural = what’s already in whole fruit, plain milk, veggies.</p>' : ''}
     <label for="fTime">When</label><input id="fTime" type="datetime-local" value="${toLocalInput(e.ts)}">
-    <label class="check"><input type="checkbox" id="fFav" ${state.foods.some((f) => f.name.toLowerCase() === (e.text || '').trim().toLowerCase()) ? 'checked' : ''}><span>⭐ Save to My Foods<small>So you can add it in one tap next time.</small></span></label>
+    <label class="check"><input type="checkbox" id="fFav" ${state.foods.some((f) => f.name.toLowerCase() === (e.text || '').trim().toLowerCase()) ? 'checked' : ''}><span>⭐ Save to My Foods<small>So you can add it in one tap next time — your photo gets saved with it.</small></span></label>
     <label class="check"><input type="checkbox" id="fSlip" ${e.slip ? 'checked' : ''}><span>🎂 This was a slip / I gave in<small>No shame. +2 for being honest.</small></span></label>
     <div class="actions">
       ${entry ? '<button class="btn danger" id="del">Delete</button>' : ''}
@@ -988,29 +1029,41 @@ function openFoodSheet(entry, prefill = {}) {
       <button class="btn primary" id="save">Save</button>
     </div>`, (s) => {
     const box = $('#photoBox', s), input = $('#photoIn', s), out = $('#aiOut', s);
-    let fromFood = null; const picked = new Set();
+    let fromFood = null, mfAll = false; const picked = new Set();
     const drawFoods = () => {
       const list = $('#mfList', s); if (!list) return;
-      const q = ($('#mfSearch', s).value || '').trim().toLowerCase();
-      const items = state.foods.filter((f) => !q || f.name.toLowerCase().includes(q))
-        .sort((a, b) => (b.uses || 0) - (a.uses || 0) || (b.lastUsed || 0) - (a.lastUsed || 0)).slice(0, q ? 30 : 8);
+      const q = ($('#mfSearch', s).value || '').trim().toLowerCase(), terms = q.split(/\s+/).filter(Boolean);
+      const sortBy = ui.mfSort || 'recent';
+      const byRecent = (a, b) => (b.lastUsed || 0) - (a.lastUsed || 0) || (b.uses || 0) - (a.uses || 0);
+      const byAZ = (a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base', numeric: true });
+      // search always looks through ALL saved foods
+      let items = state.foods.filter((f) => terms.every((t) => f.name.toLowerCase().includes(t))).sort(q || mfAll ? (sortBy === 'az' ? byAZ : byRecent) : byRecent);
+      if (!q && !mfAll) { const top = items.slice(0, 5); items = top.concat(items.filter((f) => picked.has(f.id) && !top.includes(f))); }
+      $('#mfSort', s).classList.toggle('hidden', !((q || mfAll) && state.foods.length > 1));
+      $$('#mfSort button', s).forEach((b) => b.classList.toggle('on', b.dataset.v === sortBy));
+      const more = $('#mfMore', s);
+      more.classList.toggle('hidden', !!q || state.foods.length <= 5);
+      more.textContent = mfAll ? '▴ Show just my 5 most recent' : `▾ See all ${state.foods.length} saved foods`;
       list.innerHTML = items.length ? items.map((f) => `<button class="mf-item ${picked.has(f.id) ? 'on' : ''}" data-f="${f.id}">
-          <span class="mf-name"><span class="mf-check">${picked.has(f.id) ? '✓' : ''}</span>${esc(f.name)}</span>
+          <span class="mf-name"><span class="mf-check">${picked.has(f.id) ? '✓' : ''}</span>${f.photo ? `<img class="mf-pic" src="${esc(f.photo)}" alt="">` : ''}<span>${esc(f.name)}</span></span>
           <span class="mf-g">${f.added ?? '?'}g${state.settings.trackNatural && f.natural ? ` <small>+${f.natural}g nat</small>` : ''}</span></button>`).join('')
         : '<p class="hint">No match — log it below and tick ⭐ to save it.</p>';
       $$('.mf-item', list).forEach((b) => b.onclick = () => {
         const id = b.dataset.f; picked.has(id) ? picked.delete(id) : picked.add(id); drawFoods();
       });
+      if (q && items.length) list.insertAdjacentHTML('afterbegin', `<p class="hint" style="margin:0 0 2px">${items.length} match${items.length > 1 ? 'es' : ''} in all ${state.foods.length} saved foods</p>`);
       const add = $('#mfAdd', s), chosen = state.foods.filter((f) => picked.has(f.id));
       add.classList.toggle('hidden', !chosen.length);
       const g = round(chosen.reduce((t, f) => t + (Number(f.added) || 0), 0));
       add.textContent = chosen.length === 1 ? `＋ Log ${chosen[0].name} · ${g}g` : `＋ Log ${chosen.length} foods · ${g}g added`;
     };
+    if ($('#mfMore', s)) $('#mfMore', s).onclick = () => { mfAll = !mfAll; drawFoods(); };
+    $$('#mfSort button', s).forEach((b) => b.onclick = () => { ui.mfSort = b.dataset.v; drawFoods(); });
     if ($('#mfAdd', s)) $('#mfAdd', s).onclick = () => {
       const chosen = state.foods.filter((f) => picked.has(f.id)); if (!chosen.length) return;
       const ts = fromLocalInput($('#fTime', s).value);
       chosen.forEach((f, i) => {
-        state.entries.push({ id: uid(), type: 'food', ts: ts + i, text: f.name, grams: f.added ?? null, natural: f.natural ?? null, photo: null, slip: false, aiNote: '' });
+        state.entries.push({ id: uid(), type: 'food', ts: ts + i, text: f.name, grams: f.added ?? null, natural: f.natural ?? null, photo: f.photo || null, slip: false, aiNote: '' });
         f.uses = (f.uses || 0) + 1; f.lastUsed = Date.now();
       });
       save(); closeSheet(); render();
@@ -1027,6 +1080,13 @@ function openFoodSheet(entry, prefill = {}) {
         box.innerHTML = `<img src="${photoThumb}" alt="">`; $('#rmPhoto', s).classList.remove('hidden');
       } catch (err) { toast(err.message); }
     };
+    const syncMeal = () => { const id = mealOf(fromLocalInput($('#fTime', s).value)).id; $$('#mealRow button', s).forEach((b) => b.classList.toggle('on', b.dataset.m === id)); };
+    $$('#mealRow button', s).forEach((b) => b.onclick = () => {
+      const dk = dayKey(fromLocalInput($('#fTime', s).value));
+      $('#fTime', s).value = toLocalInput(mealTime(b.dataset.m, dk)); syncMeal();
+      const m = MEALS.find((x) => x.id === b.dataset.m); toast(`${m.em} ${m.name} · ${fmtTime(fromLocalInput($('#fTime', s).value))}`);
+    });
+    $('#fTime', s).addEventListener('change', syncMeal);
     $('#rmPhoto', s).onclick = () => { photoFull = photoThumb = null; box.innerHTML = '<span>📸 Add a photo</span>'; $('#rmPhoto', s).classList.add('hidden'); input.value = ''; };
     const runAI = async (force) => {
       const text = $('#fText', s).value.trim(), img = photoFull || photoThumb;
@@ -1070,6 +1130,7 @@ function openFoodSheet(entry, prefill = {}) {
         let f = state.foods.find((x) => x.id === fromFood) || state.foods.find((x) => x.name.toLowerCase() === text.toLowerCase());
         if (!f) { f = { id: uid(), name: text, uses: 0 }; state.foods.push(f); favMsg = ' ⭐ Saved to My Foods'; }
         Object.assign(f, { name: text, added: e.grams, natural: e.natural, lastUsed: Date.now() });
+        if (photoThumb) f.photo = photoThumb; // keep the picture with the saved food
         if (!entry || fromFood) f.uses = (f.uses || 0) + 1;
       }
       save(); closeSheet(); render();
@@ -1083,7 +1144,8 @@ function openFoodsManager() {
   let list = state.foods.map((f) => ({ ...f }));
   const nat = state.settings.trackNatural;
   const rows = () => list.length ? list.map((f, i) => `
-    <div class="mf-row" data-i="${i}" style="grid-template-columns:1fr 58px ${nat ? '58px ' : ''}36px">
+    <div class="mf-row" data-i="${i}" style="grid-template-columns:46px 1fr 54px ${nat ? '54px ' : ''}34px">
+      <span class="fpic-wrap"><button class="fpic" aria-label="Photo">${f.photo ? `<img src="${esc(f.photo)}" alt="">` : '📷'}</button>${f.photo ? '<button class="fpic-x" aria-label="Remove photo">✕</button>' : ''}</span>
       <input class="fn" value="${esc(f.name)}" aria-label="Food">
       <input class="fa" type="number" inputmode="decimal" min="0" step="0.5" value="${f.added ?? ''}" placeholder="add" aria-label="Added sugar">
       ${nat ? `<input class="fl" type="number" inputmode="decimal" min="0" step="0.5" value="${f.natural ?? ''}" placeholder="nat" aria-label="Natural sugar">` : ''}
@@ -1091,7 +1153,9 @@ function openFoodsManager() {
     </div>`).join('') : '<div class="empty">No saved foods yet.</div>';
   openSheet(`
     <h2>My Foods ⭐</h2>
-    <p class="hint" style="margin-top:0">Name · added g${nat ? ' · natural g' : ''}. Changes here don’t touch past logs.</p>
+    <p class="hint" style="margin-top:0">Photo · name · added g${nat ? ' · natural g' : ''}. Tap 📷 to add or change a picture. Changes here don’t touch past logs.</p>
+    <input type="search" id="mgSearch" placeholder="Search my foods…" style="margin-bottom:10px" autocomplete="off">
+    <input type="file" id="fpicIn" accept="image/*" hidden>
     <div id="mfRows">${rows()}</div>
     <div class="actions"><button class="btn ghost" id="mfBack">Cancel</button><button class="btn primary" id="mfSave">Save</button></div>`, (s) => {
     const sync = () => $$('.mf-row', s).forEach((r) => {
@@ -1099,7 +1163,19 @@ function openFoodsManager() {
       const a = $('.fa', r).value; f.added = a === '' ? null : Math.max(0, Number(a));
       const l = $('.fl', r); if (l) f.natural = l.value === '' ? null : Math.max(0, Number(l.value));
     });
-    const wire = () => $$('.fd', s).forEach((b) => b.onclick = () => { sync(); list.splice(Number(b.closest('.mf-row').dataset.i), 1); $('#mfRows', s).innerHTML = rows(); wire(); });
+    let picFor = -1;
+    const redraw = () => { $('#mfRows', s).innerHTML = rows(); wire(); filter(); };
+    const filter = () => { const q = ($('#mgSearch', s).value || '').trim().toLowerCase(); $$('.mf-row', s).forEach((r) => r.classList.toggle('hidden', !!q && !list[r.dataset.i].name.toLowerCase().includes(q))); };
+    const wire = () => {
+      $$('.fd', s).forEach((b) => b.onclick = () => { sync(); list.splice(Number(b.closest('.mf-row').dataset.i), 1); redraw(); });
+      $$('.fpic', s).forEach((b) => b.onclick = () => { sync(); picFor = Number(b.closest('.mf-row').dataset.i); $('#fpicIn', s).click(); });
+      $$('.fpic-x', s).forEach((b) => b.onclick = () => { sync(); list[Number(b.closest('.mf-row').dataset.i)].photo = null; redraw(); });
+    };
+    $('#fpicIn', s).onchange = async (ev) => {
+      const file = ev.target.files[0]; ev.target.value = ''; if (!file || picFor < 0) return;
+      try { const img = await fileToImage(file); list[picFor].photo = resizeImg(img, 360, 0.7); redraw(); } catch (err) { toast(err.message); }
+    };
+    $('#mgSearch', s).oninput = filter;
     wire();
     $('#mfBack', s).onclick = () => openFoodSheet();
     $('#mfSave', s).onclick = () => { sync(); state.foods = list.filter((f) => f.name); save(); toast('My Foods saved ⭐'); openFoodSheet(); };
@@ -1508,7 +1584,7 @@ const ACTIONS = {
   dayToday: () => { ui.day = todayKey(); ui.followToday = true; render(); },
   togglePeriod, openCalendar,
   newProgress: () => openProgressSheet(), editProgress: (el) => openProgressSheet((state.progress || []).find((x) => x.id === el.dataset.id)),
-  newFood: () => openFoodSheet(), newCraving: () => openCravingSheet(), newWin: () => openWinSheet(), newJournal: () => openJournalSheet(),
+  newFood: () => openFoodSheet(), newMeal: (el) => openFoodSheet(null, { ts: mealTime(el.dataset.m) }), newCraving: () => openCravingSheet(), newWin: () => openWinSheet(), newJournal: () => openJournalSheet(),
   editEntry: (el) => {
     const e = state.entries.find((x) => x.id === el.dataset.id); if (!e) return;
     ({ food: openFoodSheet, craving: openCravingSheet, win: openWinSheet, journal: openJournalSheet })[e.type](e);
