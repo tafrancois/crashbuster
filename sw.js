@@ -1,5 +1,5 @@
 // Crash Buster service worker — bump CACHE when you change files
-const CACHE = 'crashbuster-v15';
+const CACHE = 'crashbuster-v16';
 const ASSETS = [
   './',
   './index.html',

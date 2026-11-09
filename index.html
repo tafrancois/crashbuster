@@ -48,6 +48,7 @@ label{display:block;font-size:13px;font-weight:600;color:var(--muted);margin:14p
   padding:calc(env(safe-area-inset-top) + 10px) 18px 8px;display:flex;align-items:center;justify-content:space-between}
 .topbar h1{margin:0;font-size:24px;letter-spacing:-.01em}
 .topbar h1 span{color:var(--berry)}
+.streak-badge{height:40px;padding:0 12px;border-radius:999px;background:var(--card);box-shadow:var(--shadow);font-weight:800;font-size:15px}
 .icon-btn{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;font-size:20px;background:var(--card);box-shadow:var(--shadow)}
 
 main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);max-width:640px;margin:0 auto}
@@ -56,7 +57,7 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 
 /* bottom nav */
 .bottomnav{position:fixed;left:0;right:0;bottom:0;z-index:6;background:var(--card);
-  border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(4,1fr);
+  border-top:1px solid var(--line);display:grid;grid-template-columns:repeat(5,1fr);
   padding-bottom:env(safe-area-inset-bottom);height:calc(var(--nav-h) + env(safe-area-inset-bottom))}
 .bottomnav button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;font-weight:600;color:var(--muted)}
 .bottomnav button .em{font-size:22px;filter:grayscale(.6);opacity:.7;transition:.15s}
@@ -131,6 +132,28 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .clamp{display:-webkit-box;-webkit-line-clamp:6;-webkit-box-orient:vertical;overflow:hidden;white-space:pre-wrap}
 .small-actions{display:flex;gap:14px;margin-top:8px}
 .small-actions button{font-size:13px;font-weight:700;color:var(--plum)}
+.cal-nav{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.cal-nav .arrow{width:38px;height:38px;border-radius:50%;font-size:22px;background:var(--bg)}
+.cal-nav .arrow:disabled{opacity:.3}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:4px}
+.cal-head div{text-align:center;font-size:12px;font-weight:800;color:var(--muted);padding-bottom:4px}
+.cal-day{aspect-ratio:1;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-weight:700;font-size:15px;background:var(--bg)}
+.cal-day:disabled{opacity:.3}
+.cal-day.today{outline:2px solid var(--berry)}
+.cal-day.sel{background:var(--berry);color:#fff}
+.dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:transparent}
+.dot.under{background:var(--mint)} .dot.over{background:var(--honey)} .dot.logged{background:var(--plum)} .dot.open{background:var(--line);box-shadow:inset 0 0 0 1.5px var(--muted)}
+.cal-day.sel .dot{box-shadow:0 0 0 1.5px #fff}
+.cal-legend{display:flex;flex-wrap:wrap;gap:12px;margin-top:12px;font-size:12px;color:var(--muted);font-weight:600}
+.cal-legend span{display:inline-flex;align-items:center;gap:5px}
+.wk-row{display:grid;grid-template-columns:70px 1fr 64px;gap:10px;align-items:center;background:var(--bg);border-radius:12px;padding:10px 12px;text-align:left}
+.wk-row.sel{outline:2px solid var(--berry)}
+.wk-row:disabled{opacity:.35}
+.wk-day{font-weight:800}.wk-day small,.wk-g small{display:block;font-size:11px;color:var(--muted);font-weight:600}
+.wk-bar{height:10px;background:var(--line);border-radius:9px;overflow:hidden}
+.wk-bar span{display:block;height:100%;background:var(--mint);border-radius:9px}
+.wk-bar span.over{background:var(--honey)}
+.wk-g{text-align:right;font-weight:800}
 .dayhead{font-size:13px;font-weight:700;color:var(--muted);margin:18px 2px 2px}
 
 /* chips & segmented */
@@ -177,6 +200,21 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .bars .fill{width:100%;border-radius:8px 8px 4px 4px;background:var(--mint);min-height:4px}
 .bars .bar.today .fill{background:var(--berry)}
 .bars .v{color:var(--ink)}
+.pbars{position:relative;display:grid;grid-template-columns:repeat(6,1fr);gap:8px;align-items:end;height:150px;margin-top:10px}
+.pbars .bar{display:flex;flex-direction:column;align-items:center;justify-content:flex-end;height:100%;gap:4px;font-size:10.5px;color:var(--muted);font-weight:700}
+.pbars .fill{width:100%;border-radius:8px 8px 4px 4px;background:var(--mint)}
+.pbars .fill.over{background:var(--honey)}
+.pbars .bar.today .fill{outline:2px solid var(--berry);outline-offset:1px}
+.pbars .v{color:var(--ink)}
+.goal-line{position:absolute;left:0;right:0;border-top:2px dashed var(--berry);opacity:.6;pointer-events:none}
+.compare{margin-top:12px;background:var(--mint-soft);border-radius:12px;padding:10px 12px;font-size:14px;line-height:1.4}
+.prog-card{text-align:left;width:100%}
+.prog-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+.prog-area{font-weight:800;font-size:15px}
+.prog-row{display:flex;gap:10px;align-items:flex-start;font-size:15px;line-height:1.4;margin-top:6px}
+.prog-row .lbl{flex:0 0 46px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;padding:3px 0;border-radius:6px;text-align:center}
+.lbl.then{background:var(--line);color:var(--muted)}
+.lbl.now{background:var(--mint-soft);color:var(--mint)}
 
 /* sheet */
 .sheet-wrap{position:fixed;inset:0;z-index:20;background:rgba(30,15,30,.45);display:flex;align-items:flex-end;justify-content:center;animation:fade .15s}
@@ -213,6 +251,8 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 .mf-list{display:flex;flex-direction:column;gap:6px;margin-top:8px}
 .mf-item{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--card);border:1.5px solid var(--line);border-radius:12px;padding:11px 12px;text-align:left;font-weight:600;font-size:15px}
 .mf-item.on{border-color:var(--berry);background:var(--berry-soft)}
+.mf-check{display:inline-grid;place-items:center;width:20px;height:20px;border-radius:6px;border:2px solid var(--line);margin-right:8px;font-size:13px;color:#fff;vertical-align:-3px}
+.mf-item.on .mf-check{background:var(--berry);border-color:var(--berry)}
 .mf-item .mf-g{font-weight:800;color:var(--honey);white-space:nowrap}
 .mf-item .mf-g small{color:var(--mint);font-weight:700}
 .mf-row{display:grid;gap:6px;margin-bottom:8px;align-items:center}
@@ -233,13 +273,17 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
 <body>
 <header class="topbar">
   <h1>Crash <span>Buster</span> 💥</h1>
-  <button class="icon-btn" data-action="openSettings" aria-label="Settings">⚙️</button>
+  <div style="display:flex;gap:8px;align-items:center">
+    <button class="streak-badge" id="streakBadge" data-action="tab" data-tab="wins" aria-label="Check-in streak"></button>
+    <button class="icon-btn" data-action="openSettings" aria-label="Settings">⚙️</button>
+  </div>
 </header>
 
 <main>
   <section id="tab-today" class="tab active"></section>
   <section id="tab-journal" class="tab"></section>
   <section id="tab-toolkit" class="tab"></section>
+  <section id="tab-progress" class="tab"></section>
   <section id="tab-wins" class="tab"></section>
 </main>
 
@@ -247,6 +291,7 @@ main{padding:4px 16px calc(var(--nav-h) + env(safe-area-inset-bottom) + 24px);ma
   <button data-action="tab" data-tab="today" class="active"><span class="em">🏠</span>Today</button>
   <button data-action="tab" data-tab="journal"><span class="em">📖</span>Journal</button>
   <button data-action="tab" data-tab="toolkit"><span class="em">🧰</span>Toolkit</button>
+  <button data-action="tab" data-tab="progress"><span class="em">📈</span>Progress</button>
   <button data-action="tab" data-tab="wins"><span class="em">🏆</span>Wins</button>
 </nav>
 
@@ -317,7 +362,7 @@ const DEFAULT_QUICK_WINS = () => [
 ].map(([emoji, text, points], i) => ({ id: 'qw' + i, emoji, text, points }));
 const DEFAULT_STATE = () => ({
   version: 1,
-  entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(), quickWins: DEFAULT_QUICK_WINS(), foods: [],
+  entries: [], whys: [], goals: [], moves: DEFAULT_MOVES(), quickWins: DEFAULT_QUICK_WINS(), foods: [], progress: [], openDays: {},
   periodDays: {},
   settings: { apiKey: '', model: 'gemini-3.7-flash', goal: 35, periodGoal: 40, totalFlag: 90, trackNatural: true, webSearch: true, useBackups: true, modelList: [] }
 });
@@ -372,6 +417,14 @@ function pointEvents() {
       ev.push({ ts: e.ts, pts: Number(e.points) || 0, label: e.text });
     }
   }
+  // daily check-ins (bonus grows with your streak)
+  const act = [...activeDays()].sort(); let run = 0, prev = null;
+  for (const k of act) {
+    run = prev && addDays(prev, 1) === k ? run + 1 : 1; prev = k;
+    const d = keyToDate(k); d.setHours(0, 1);
+    ev.push({ ts: d.getTime(), pts: checkinPts(run), label: run > 1 ? `Checked in · day ${run} streak 🔥` : 'Checked in 👋', bonus: true, checkin: true });
+  }
+  for (const p of state.progress || []) ev.push({ ts: p.ts, pts: 5, label: `Noticed progress: ${p.area}` });
   for (const g of state.goals) if (g.done && g.doneTs) ev.push({ ts: g.doneTs, pts: 15, label: `Goal reached 🎯 ${g.text.slice(0, 60)}${g.text.length > 60 ? '…' : ''}` });
   const days = new Set(state.entries.map((e) => dayKey(e.ts)));
   const tk = todayKey();
@@ -382,6 +435,21 @@ function pointEvents() {
     }
   }
   return ev.sort((a, b) => b.ts - a.ts);
+}
+// days the app was opened (or anything was logged — logging means it was opened)
+function activeDays() {
+  const set = new Set(Object.keys(state.openDays || {}));
+  for (const e of state.entries) set.add(dayKey(e.ts));
+  return set;
+}
+function openStreak(k = todayKey()) { const a = activeDays(); let n = 0; while (a.has(k)) { n++; k = addDays(k, -1); } return n; }
+const checkinPts = (n) => 2 + Math.min(Math.max(n, 1) - 1, 10); // +2 base, +1 per streak day, max +12
+function markOpen() {
+  const k = todayKey(); state.openDays = state.openDays || {};
+  if (state.openDays[k]) return;
+  state.openDays[k] = true; save();
+  const n = openStreak(k);
+  setTimeout(() => toast(n > 1 ? `🔥 Day ${n} check-in streak! +${checkinPts(n)}` : `👋 Checked in for today! +${checkinPts(1)}`), 600);
 }
 function streak() {
   let n = 0, k = addDays(todayKey(), -1); // today counts once it's over
@@ -502,7 +570,7 @@ function renderToday() {
   $('#tab-today').innerHTML = `
     <div class="daynav">
       <button class="arrow" data-action="dayPrev" aria-label="Previous day">‹</button>
-      <button class="daylabel" data-action="dayToday">${isToday ? 'Today' : fmtDay(k)}<small>${isToday ? fmtDay(k) : 'tap to jump to today'}</small></button>
+      <button class="daylabel" data-action="openCalendar">${isToday ? 'Today' : fmtDay(k)}<small>📅 ${isToday ? fmtDay(k) : 'tap for calendar'}</small></button>
       <button class="arrow" data-action="dayNext" ${isToday ? 'disabled' : ''} aria-label="Next day">›</button>
     </div>
     <div class="card ring-card">
@@ -610,9 +678,10 @@ function renderWins() {
   const weekEv = ev.filter((e) => inRange(e, wk));
   $('#tab-wins').innerHTML = `<h2>Wins</h2>
     <div class="card score"><div class="big">${thisWeek}</div><div class="lbl">points this week</div><div class="vibe">${vibe}</div></div>
-    <div class="stats3">
+    <div class="stats3" style="grid-template-columns:1fr 1fr">
+      <div class="card"><b>${openStreak()}🔥</b><span>check-in streak</span></div>
+      <div class="card"><b>${streak()}✨</b><span>days under goal in a row</span></div>
       <div class="card"><b>${lastWeek}</b><span>last week</span></div>
-      <div class="card"><b>${streak()}🔥</b><span>day streak</span></div>
       <div class="card"><b>${total}</b><span>all time</span></div>
     </div>
     <div class="card" style="margin-top:12px">
@@ -621,19 +690,155 @@ function renderWins() {
         <span>${keyToDate(k).toLocaleDateString([], { weekday: 'narrow' })}</span></div>`).join('')}</div>
     </div>
     <button class="btn primary wide" style="margin-top:14px" data-action="newWin">🏆 Log a win</button>
-    <p class="hint">Resisted craving +10 · made a move +5 · smaller portion +5 · honest slip log +2 · under goal for the day +20 (log at least one meal, even a 0g one) · goal reached +15</p>
+    <p class="hint">Resisted craving +10 · made a move +5 · smaller portion +5 · honest slip log +2 · under goal for the day +20 (log at least one meal, even a 0g one) · goal reached +15 · noticed progress +5 · daily check-in +2, plus +1 for every day of your streak (up to +12/day)</p>
     <h3>This week</h3>
     <div class="list">${weekEv.length ? weekEv.map((e) => `<div class="item win"><div class="badge">${e.bonus ? '✨' : '🏆'}</div>
       <div class="body"><div class="meta">${fmtDateTime(e.ts)}</div><div class="txt">${esc(e.label)}</div></div><div class="pts">+${e.pts}</div></div>`).join('')
       : '<div class="empty">No points yet this week — your first one is one tap away 💪</div>'}</div>`;
 }
 
+/* ---------- CALENDAR ---------- */
+function dayStatus(k) {
+  const es = entriesOn(k); if (!es.length) return state.openDays?.[k] ? 'open' : '';
+  if (!es.some((e) => e.type === 'food')) return 'logged';
+  return sumGrams(k) <= goalFor(k) ? 'under' : 'over';
+}
+function openCalendar() {
+  let view = ui.calView || 'month';
+  const sel = ui.day, tk = todayKey();
+  let month = keyToDate(sel); month.setDate(1);
+  let wk = weekStartKey(sel);
+  const go = (k) => { if (k > tk) return; ui.day = k; ui.followToday = k === tk; closeSheet(); ui.tab = 'today'; render(); window.scrollTo(0, 0); };
+  const dot = (k) => { const st = dayStatus(k); return st ? `<i class="dot ${st}"></i>` : '<i class="dot"></i>'; };
+  const draw = (s) => {
+    let body = '';
+    if (view === 'month') {
+      const y = month.getFullYear(), m = month.getMonth();
+      const firstK = dayKey(new Date(y, m, 1).getTime()), lead = (new Date(y, m, 1).getDay() + 6) % 7, nd = new Date(y, m + 1, 0).getDate();
+      const cells = [...Array(lead)].map(() => '<div></div>').concat([...Array(nd)].map((_, i) => {
+        const k = addDays(firstK, i), fut = k > tk;
+        return `<button class="cal-day ${k === sel ? 'sel' : ''} ${k === tk ? 'today' : ''}" data-k="${k}" ${fut ? 'disabled' : ''}>${i + 1}${dot(k)}</button>`;
+      }));
+      const nextOk = dayKey(new Date(y, m + 1, 1).getTime()) <= tk;
+      body = `<div class="cal-nav"><button class="arrow" id="prev">‹</button><b>${month.toLocaleDateString([], { month: 'long', year: 'numeric' })}</b><button class="arrow" id="next" ${nextOk ? '' : 'disabled'}>›</button></div>
+        <div class="cal-grid cal-head">${['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d) => `<div>${d}</div>`).join('')}</div>
+        <div class="cal-grid">${cells.join('')}</div>`;
+    } else {
+      const rows = [...Array(7)].map((_, i) => {
+        const k = addDays(wk, i), fut = k > tk, g = round(sumGrams(k)), goal = goalFor(k), n = entriesOn(k).length;
+        const pct = Math.min(100, Math.round((g / goal) * 100));
+        return `<button class="wk-row ${k === sel ? 'sel' : ''}" data-k="${k}" ${fut ? 'disabled' : ''}>
+          <span class="wk-day">${keyToDate(k).toLocaleDateString([], { weekday: 'short' })}<small>${fmtShort(k)}</small></span>
+          <span class="wk-bar"><span class="${g > goal ? 'over' : ''}" style="width:${pct}%"></span></span>
+          <span class="wk-g">${fut ? '' : n ? `${g}g` : '—'}<small>${fut ? '' : n ? `${n} log${n > 1 ? 's' : ''}` : ''}</small></span></button>`;
+      }).join('');
+      const nextOk = addDays(wk, 7) <= tk;
+      body = `<div class="cal-nav"><button class="arrow" id="prev">‹</button><b>${fmtShort(wk)} – ${fmtShort(addDays(wk, 6))}</b><button class="arrow" id="next" ${nextOk ? '' : 'disabled'}>›</button></div>
+        <div class="list" style="gap:6px">${rows}</div>`;
+    }
+    s.innerHTML = `
+      <div class="seg" style="grid-template-columns:1fr 1fr;margin-bottom:12px">
+        <button class="${view === 'week' ? 'on' : ''}" data-v="week">Week</button><button class="${view === 'month' ? 'on' : ''}" data-v="month">Month</button>
+      </div>${body}
+      <div class="cal-legend"><span><i class="dot under"></i>under goal</span><span><i class="dot over"></i>over goal</span><span><i class="dot logged"></i>logged, no food</span><span><i class="dot open"></i>opened</span></div>
+      <button class="btn ghost wide" id="todayBtn" style="margin-top:14px">Jump to today</button>`;
+    $$('.seg button', s).forEach((b) => b.onclick = () => { view = ui.calView = b.dataset.v; draw(s); });
+    $$('[data-k]', s).forEach((b) => b.onclick = () => go(b.dataset.k));
+    $('#prev', s).onclick = () => { if (view === 'month') month.setMonth(month.getMonth() - 1); else wk = addDays(wk, -7); draw(s); };
+    $('#next', s).onclick = () => { if (view === 'month') month.setMonth(month.getMonth() + 1); else wk = addDays(wk, 7); draw(s); };
+    $('#todayBtn', s).onclick = () => go(tk);
+  };
+  openSheet('<div></div>', (s) => draw(s));
+}
+
+/* ---------- PROGRESS ---------- */
+const AREAS = ['🍽️ Hunger', '⚡ Energy', '😴 Sleep', '🙂 Mood', '🍩 Cravings', '💪 Body', '👀 Others noticed', '✨ Other'];
+function weekAvg(wk) {
+  const tk = todayKey(); let sum = 0, n = 0;
+  for (let i = 0; i < 7; i++) { const k = addDays(wk, i); if (k > tk) break; if (entriesOn(k).some((e) => e.type === 'food')) { sum += sumGrams(k); n++; } }
+  return n ? { avg: round(sum / n), days: n } : null;
+}
+function renderProgress() {
+  const tk = todayKey(), wk = weekStartKey(tk);
+  const weeks = [...Array(6)].map((_, i) => addDays(wk, -7 * (5 - i))).map((w) => ({ w, a: weekAvg(w) }));
+  const withData = weeks.filter((x) => x.a);
+  const first = state.entries.filter((e) => e.type === 'food').map((e) => dayKey(e.ts)).sort()[0];
+  const firstWk = first ? weekAvg(weekStartKey(first)) : null, thisWk = weekAvg(wk);
+  const max = Math.max(state.settings.goal, ...withData.map((x) => x.a.avg));
+  const resisted = state.entries.filter((e) => e.type === 'craving' && (e.outcome === 'resisted' || e.outcome === 'smaller')).length;
+  const daysLogged = new Set(state.entries.filter((e) => e.type === 'food').map((e) => dayKey(e.ts))).size;
+  const list = (state.progress || []).slice().sort((a, b) => b.ts - a.ts);
+  let compare = '';
+  if (firstWk && thisWk && weekStartKey(first) !== wk) {
+    const diff = round(firstWk.avg - thisWk.avg);
+    compare = diff > 0 ? `📉 You’re averaging <b>${diff}g less</b> added sugar a day than your first week (${firstWk.avg}g → ${thisWk.avg}g)`
+      : diff < 0 ? `This week’s average is ${-diff}g higher than your first week (${firstWk.avg}g → ${thisWk.avg}g). Rough weeks happen 💛` : 'Holding steady with your first week.';
+  }
+  $('#tab-progress').innerHTML = `<h2>Progress</h2>
+    <div class="card">
+      <div style="font-weight:800;margin-bottom:2px">Average added sugar per day</div>
+      <div class="hint" style="margin-top:0">by week · dashed line = your ${state.settings.goal}g goal</div>
+      <div class="pbars">
+        <div class="goal-line" style="bottom:${Math.round((state.settings.goal / max) * 100) + 22}px"></div>
+        ${weeks.map(({ w, a }) => `<div class="bar ${w === wk ? 'today' : ''}"><span class="v">${a ? a.avg + 'g' : ''}</span>
+          <div class="fill ${a && a.avg > state.settings.goal ? 'over' : ''}" style="height:${a ? Math.max(4, Math.round((a.avg / max) * 100)) : 0}px"></div>
+          <span>${fmtShort(w)}</span></div>`).join('')}
+      </div>
+      ${compare ? `<div class="compare">${compare}</div>` : ''}
+    </div>
+    <div class="stats3">
+      <div class="card"><b>${daysLogged}</b><span>days logged</span></div>
+      <div class="card"><b>${resisted}💪</b><span>cravings beaten</span></div>
+      <div class="card"><b>${list.length}</b><span>changes noticed</span></div>
+    </div>
+    <h3>Then → Now</h3>
+    <p class="hint" style="margin-top:-4px">How your body & life are changing. Each one = +5 points.</p>
+    <button class="btn primary wide" data-action="newProgress">＋ I noticed a change</button>
+    <div class="list" style="margin-top:12px">${list.length ? list.map((p) => `
+      <button class="card prog-card" data-action="editProgress" data-id="${p.id}">
+        <div class="prog-head"><span class="prog-area">${esc(p.area)}</span><span class="meta">${fmtShort(dayKey(p.ts))}</span></div>
+        ${p.then ? `<div class="prog-row"><span class="lbl then">Then</span><span>${esc(p.then)}</span></div>` : ''}
+        <div class="prog-row"><span class="lbl now">Now</span><span>${esc(p.now)}</span></div>
+      </button>`).join('') : '<div class="empty">Nothing yet — what feels different since you started? 🌱</div>'}</div>`;
+}
+function openProgressSheet(p) {
+  const e = p || { area: AREAS[0], then: '', now: '', ts: Date.now() };
+  let area = e.area;
+  openSheet(`
+    <h2>${p ? 'Edit change' : 'I noticed a change 📈'}</h2>
+    <label>What area?</label>
+    <div class="pickrow" id="areas">${AREAS.map((a) => `<button class="${a === area ? 'on' : ''}" data-a="${esc(a)}">${a}</button>`).join('')}</div>
+    <label for="pThen">Then — how it used to be (optional)</label>
+    <textarea id="pThen" rows="2" placeholder="I used to eat 4 meals a day">${esc(e.then)}</textarea>
+    <label for="pNow">Now — what’s different</label>
+    <textarea id="pNow" rows="3" placeholder="Now I eat 3 and I’m not starving">${esc(e.now)}</textarea>
+    <label for="pDate">When I noticed</label>
+    <input id="pDate" type="date" value="${dayKey(e.ts)}">
+    <div class="actions">
+      ${p ? '<button class="btn danger" id="del">Delete</button>' : ''}
+      <button class="btn ghost" data-action="closeSheet">Cancel</button>
+      <button class="btn primary" id="save">Save</button>
+    </div>`, (s) => {
+    $$('#areas button', s).forEach((b) => b.onclick = () => { area = b.dataset.a; $$('#areas button', s).forEach((x) => x.classList.toggle('on', x === b)); });
+    $('#save', s).onclick = () => {
+      const now = $('#pNow', s).value.trim(); if (!now) { toast('What’s different now? ✨'); return; }
+      const d = $('#pDate', s).value; const t = d ? keyToDate(d) : new Date(); const n = new Date(); t.setHours(n.getHours(), n.getMinutes());
+      Object.assign(e, { area, then: $('#pThen', s).value.trim(), now, ts: t.getTime() });
+      state.progress = state.progress || [];
+      if (!p) { e.id = uid(); state.progress.push(e); }
+      save(); closeSheet(); render(); toast(p ? 'Saved ✔️' : '+5 📈 Look at you GROWING');
+    };
+    if (p) $('#del', s).onclick = () => { if (confirm('Delete this?')) { state.progress = state.progress.filter((x) => x.id !== p.id); save(); closeSheet(); render(); } };
+  });
+}
+
 /* ---------- render ---------- */
-const RENDER = { today: renderToday, journal: renderJournal, toolkit: renderToolkit, wins: renderWins };
+const RENDER = { today: renderToday, journal: renderJournal, toolkit: renderToolkit, progress: renderProgress, wins: renderWins };
 function render() {
   $$('.tab').forEach((t) => t.classList.toggle('active', t.id === 'tab-' + ui.tab));
   $$('.bottomnav button').forEach((b) => b.classList.toggle('active', b.dataset.tab === ui.tab));
   RENDER[ui.tab]();
+  const n = openStreak(); $('#streakBadge').textContent = `🔥 ${n}`;
 }
 
 /* ---------- images ---------- */
@@ -750,7 +955,10 @@ function openFoodSheet(entry, prefill = {}) {
     <h2>${entry ? 'Edit food log' : 'Log food 🍽️'}</h2>
     ${entry ? '' : `<div class="mf">
       <div style="display:flex;justify-content:space-between;align-items:baseline"><label style="margin-top:0">⭐ My Foods</label>${state.foods.length ? '<button class="link" id="mfManage">Manage</button>' : ''}</div>
-      ${state.foods.length ? `<input id="mfSearch" type="search" placeholder="Search my foods…" autocomplete="off"><div class="mf-list" id="mfList"></div>`
+      ${state.foods.length ? `<input id="mfSearch" type="search" placeholder="Search my foods…" autocomplete="off">
+        <p class="hint" style="margin:6px 0 0">Tap to select one or more — each gets its own log.</p>
+        <div class="mf-list" id="mfList"></div>
+        <button class="btn primary wide hidden" id="mfAdd" style="margin-top:10px"></button>`
         : '<p class="hint" style="margin-top:0">Tick “⭐ Save to My Foods” below when you log something you have a lot — next time it’s one tap.</p>'}
     </div>`}
     <button class="photo-box" id="photoBox">${photoThumb ? `<img src="${esc(photoThumb)}" alt="">` : '<span>📸 Add a photo</span>'}</button>
@@ -774,23 +982,33 @@ function openFoodSheet(entry, prefill = {}) {
       <button class="btn primary" id="save">Save</button>
     </div>`, (s) => {
     const box = $('#photoBox', s), input = $('#photoIn', s), out = $('#aiOut', s);
-    let fromFood = null;
+    let fromFood = null; const picked = new Set();
     const drawFoods = () => {
       const list = $('#mfList', s); if (!list) return;
       const q = ($('#mfSearch', s).value || '').trim().toLowerCase();
       const items = state.foods.filter((f) => !q || f.name.toLowerCase().includes(q))
-        .sort((a, b) => (b.uses || 0) - (a.uses || 0) || (b.lastUsed || 0) - (a.lastUsed || 0)).slice(0, q ? 30 : 6);
-      list.innerHTML = items.length ? items.map((f) => `<button class="mf-item ${fromFood === f.id ? 'on' : ''}" data-f="${f.id}">
-          <span class="mf-name">${esc(f.name)}</span>
+        .sort((a, b) => (b.uses || 0) - (a.uses || 0) || (b.lastUsed || 0) - (a.lastUsed || 0)).slice(0, q ? 30 : 8);
+      list.innerHTML = items.length ? items.map((f) => `<button class="mf-item ${picked.has(f.id) ? 'on' : ''}" data-f="${f.id}">
+          <span class="mf-name"><span class="mf-check">${picked.has(f.id) ? '✓' : ''}</span>${esc(f.name)}</span>
           <span class="mf-g">${f.added ?? '?'}g${state.settings.trackNatural && f.natural ? ` <small>+${f.natural}g nat</small>` : ''}</span></button>`).join('')
         : '<p class="hint">No match — log it below and tick ⭐ to save it.</p>';
       $$('.mf-item', list).forEach((b) => b.onclick = () => {
-        const f = state.foods.find((x) => x.id === b.dataset.f); if (!f) return;
-        fromFood = f.id;
-        $('#fText', s).value = f.name; $('#fGrams', s).value = f.added ?? ''; if ($('#fNat', s)) $('#fNat', s).value = f.natural ?? '';
-        $('#fFav', s).checked = true; out.classList.add('hidden'); drawFoods();
-        toast(`⭐ ${f.name} filled in — tap Save`);
+        const id = b.dataset.f; picked.has(id) ? picked.delete(id) : picked.add(id); drawFoods();
       });
+      const add = $('#mfAdd', s), chosen = state.foods.filter((f) => picked.has(f.id));
+      add.classList.toggle('hidden', !chosen.length);
+      const g = round(chosen.reduce((t, f) => t + (Number(f.added) || 0), 0));
+      add.textContent = chosen.length === 1 ? `＋ Log ${chosen[0].name} · ${g}g` : `＋ Log ${chosen.length} foods · ${g}g added`;
+    };
+    if ($('#mfAdd', s)) $('#mfAdd', s).onclick = () => {
+      const chosen = state.foods.filter((f) => picked.has(f.id)); if (!chosen.length) return;
+      const ts = fromLocalInput($('#fTime', s).value);
+      chosen.forEach((f, i) => {
+        state.entries.push({ id: uid(), type: 'food', ts: ts + i, text: f.name, grams: f.added ?? null, natural: f.natural ?? null, photo: null, slip: false, aiNote: '' });
+        f.uses = (f.uses || 0) + 1; f.lastUsed = Date.now();
+      });
+      save(); closeSheet(); render();
+      toast(chosen.length === 1 ? `⭐ Logged ${chosen[0].name}` : `⭐ Logged ${chosen.length} foods`);
     };
     if ($('#mfSearch', s)) { $('#mfSearch', s).oninput = drawFoods; drawFoods(); }
     if ($('#mfManage', s)) $('#mfManage', s).onclick = () => openFoodsManager();
@@ -1282,7 +1500,8 @@ const ACTIONS = {
   dayPrev: () => { ui.day = addDays(ui.day, -1); ui.followToday = false; render(); },
   dayNext: () => { if (ui.day < todayKey()) ui.day = addDays(ui.day, 1); ui.followToday = ui.day === todayKey(); render(); },
   dayToday: () => { ui.day = todayKey(); ui.followToday = true; render(); },
-  togglePeriod,
+  togglePeriod, openCalendar,
+  newProgress: () => openProgressSheet(), editProgress: (el) => openProgressSheet((state.progress || []).find((x) => x.id === el.dataset.id)),
   newFood: () => openFoodSheet(), newCraving: () => openCravingSheet(), newWin: () => openWinSheet(), newJournal: () => openJournalSheet(),
   editEntry: (el) => {
     const e = state.entries.find((x) => x.id === el.dataset.id); if (!e) return;
@@ -1303,7 +1522,10 @@ document.addEventListener('click', (ev) => {
   ev.preventDefault(); ev.stopPropagation(); fn(el, ev);
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.visibilityState === 'visible' && ui.followToday && ui.day !== todayKey()) { ui.day = todayKey(); render(); }
+  if (document.visibilityState !== 'visible') return;
+  markOpen();
+  if (ui.followToday && ui.day !== todayKey()) ui.day = todayKey();
+  render();
 });
 
 /* ---------- boot ---------- */
@@ -1316,6 +1538,16 @@ document.addEventListener('visibilitychange', () => {
     }
     else { seed(); await save(); }
   } catch (e) { seed(); toast('⚠️ Storage unavailable — data won’t persist'); }
+  if (!state.progressSeeded) {
+    const t = new Date(2026, 10, 8, 21, 33).getTime();
+    state.progress = (state.progress || []).concat([
+      { id: uid(), ts: t, area: '🍽️ Hunger', then: 'Eating 4 meals a day', now: 'Eating 3 meals a day — I’m so much less hungry since cutting back on sugar' },
+      { id: uid(), ts: t, area: '⚡ Energy', then: 'Couldn’t get up in the morning', now: 'Waking up at the ass crack of dawn full of energy, before any caffeine' },
+      { id: uid(), ts: t, area: '👀 Others noticed', then: '', now: 'My husband noticed a huge difference in me' }
+    ]);
+    state.progressSeeded = true; save();
+  }
+  markOpen();
   render();
   if (navigator.storage?.persist) navigator.storage.persist().catch(() => {});
   if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => {});
